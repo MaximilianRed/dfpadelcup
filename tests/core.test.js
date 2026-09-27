@@ -500,6 +500,12 @@ test('scambio coppie tra gironi', () => {
   assert.strictEqual(t.groupMatches.length, 12);
 });
 
+test('versione e data di aggiornamento', () => {
+  assert.match(C.VERSION, /^\d+\.\d+\.\d+$/);
+  assert.match(C.VERSION_DATE, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(!Number.isNaN(new Date(C.VERSION_DATE).getTime()));
+});
+
 test('index.html carica i file con la versione attuale (niente file vecchi in cache)', () => {
   const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
   const refs = [...html.matchAll(/(?:src|href)="((?:js|css)\/[^"?]+)(?:\?v=([^"]*))?"/g)];

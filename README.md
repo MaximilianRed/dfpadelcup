@@ -87,11 +87,12 @@ su un altro dispositivo, e **Importa** per ricaricarlo.
 
 ## Versioni
 
-La versione è scritta nella testata dell'app e in *Impostazioni → Informazioni*
-(si cambia in `js/core.js`, costante `VERSION`). A ogni nuova versione aggiorna anche `?v=...` negli indirizzi
+La versione e la data dell'aggiornamento sono scritte nella testata dell'app e in *Impostazioni → Informazioni*
+(si cambiano in `js/core.js`, costanti `VERSION` e `VERSION_DATE`). A ogni nuova versione aggiorna anche `?v=...` negli indirizzi
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.6.1** (27/09/2026) — Data dell'aggiornamento accanto al numero di versione.
 - **1.6.0** — Regole del punteggio scritte per esteso e modificabili (Impostazioni e scheda Coppie);
   regola "il 7 conta come 6" (7-6 → 6-6, 7-5 → 6-5).
 - **1.5.0** — Tabellone completo con zoom, stampa orizzontale su 1 pagina o più fogli, condivisione come

@@ -1169,7 +1169,7 @@
 
     <section class="card">
       <h2 data-help-key="sec-info">Informazioni</h2>
-      <p class="muted" style="margin:0"><strong>DF Padel Cup versione ${C.VERSION}</strong><br>${nTornei} ${nTornei === 1 ? 'torneo salvato' : 'tornei salvati'} in questo browser.<br>
+      <p class="muted" style="margin:0"><strong>DF Padel Cup versione ${C.VERSION}</strong> · aggiornata il ${formatDate(C.VERSION_DATE)}<br>${nTornei} ${nTornei === 1 ? 'torneo salvato' : 'tornei salvati'} in questo browser.<br>
       Tema, testo e aiuto valgono solo per questo dispositivo e non modificano i tornei.</p>
     </section>`;
   }
@@ -1647,7 +1647,7 @@
   /* ---------------------------------------------------------------- avvio */
 
   applyPrefs();
-  document.getElementById('appVersion').textContent = 'v' + C.VERSION;
+  document.getElementById('appVersion').textContent = `v${C.VERSION} · ${formatDate(C.VERSION_DATE)}`;
   // Con il tema automatico aggiorna il colore della barra del browser se cambia la modalità del dispositivo.
   try {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyPrefs);

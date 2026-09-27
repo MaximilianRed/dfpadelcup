@@ -9,8 +9,10 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  // Versione del programma: aggiornala a ogni rilascio (vedi README, "Versioni").
-  const VERSION = '1.6.0';
+  // Versione del programma e data dell'aggiornamento (AAAA-MM-GG): aggiornale a ogni rilascio
+  // (vedi README, "Versioni").
+  const VERSION = '1.6.1';
+  const VERSION_DATE = '2026-09-27';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -754,7 +756,7 @@
   }
 
   return {
-    VERSION, LETTERS, newTournament, newTeam, teamName, clampCourts,
+    VERSION, VERSION_DATE, LETTERS, newTournament, newTeam, teamName, clampCourts,
     isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
     groupSizes, groupRange, tournamentSizes, describeSizes, describeGroups, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
     FORMATS, sevenCountsAsSix, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
