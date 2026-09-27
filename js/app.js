@@ -1,0 +1,1014 @@
+/*
+ * DF Padel Cup - interfaccia.
+ * Usa PadelCore (regole) e PadelStorage (salvataggio).
+ */
+(function () {
+  'use strict';
+
+  const C = window.PadelCore;
+  const S = window.PadelStorage;
+  const view = document.getElementById('view');
+  const tabsEl = document.getElementById('tabs');
+  const currentNameEl = document.getElementById('currentName');
+
+  let t = null; // torneo aperto
+  let TM = {}; // coppie per id
+  let tab = 'tornei';
+  const ui = { court: 0, editGroups: false, focus: null };
+
+  /* ------------------------------------------------------------ preferenze */
+
+  // Preferenze del dispositivo (non del torneo): tema, dimensione testo, aiuto.
+  const PREFS_KEY = 'ppt.prefs';
+  const prefs = Object.assign({ theme: 'auto', size: 'normale', help: true }, readPrefs());
+
+  // Colori delle miniature: stessi valori dei temi in style.css.
+  const THEMES = [
+    { id: 'auto', name: 'Automatico', desc: 'Padel di giorno, Padel notte se il dispositivo è in modalità scura.' },
+    { id: 'padel', name: 'Padel', desc: 'Blu campo e giallo pallina.', meta: '#1d4f9c',
+      p: { bg: '#eef3fa', hero1: '#173f80', hero2: '#2a6fd4', nav: '#12325f', card: '#ffffff', text: '#0f1d33', ball: '#d4f53c', score: '#0f1d33' } },
+    { id: 'notte', name: 'Padel notte', desc: 'Scuro, come una partita sotto i riflettori.', meta: '#081634',
+      p: { bg: '#080e1c', hero1: '#081634', hero2: '#173a86', nav: '#060d1f', card: '#111a2e', text: '#e8eefb', ball: '#d4f53c', score: '#03060d' } },
+    { id: 'verde', name: 'Campo verde', desc: 'Erba sintetica verde e pallina gialla.', meta: '#125233',
+      p: { bg: '#eef5f0', hero1: '#125233', hero2: '#22915a', nav: '#0e3f27', card: '#ffffff', text: '#0f2418', ball: '#f2e94e', score: '#0f2418' } },
+    { id: 'classico', name: 'Classico', desc: 'Sobrio e chiaro, senza decorazioni.', meta: '#0f766e',
+      p: { bg: '#f3f6f5', hero1: '#0f766e', hero2: '#0f766e', nav: '#ffffff', card: '#ffffff', text: '#17201d', ball: '#0f766e', score: '#dbe3e0' } },
+  ];
+  const SIZES = [
+    { id: 'normale', name: 'Normale', aa: 'Aa' },
+    { id: 'grande', name: 'Grande', aa: 'Aa' },
+    { id: 'molto-grande', name: 'Molto grande', aa: 'Aa' },
+  ];
+
+  function readPrefs() {
+    try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (e) { return {}; }
+  }
+
+  function applyPrefs() {
+    const root = document.documentElement;
+    root.dataset.theme = prefs.theme;
+    root.dataset.size = prefs.size;
+    const dark = prefs.theme === 'notte' || (prefs.theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const theme = THEMES.find((x) => x.id === (prefs.theme === 'auto' ? (dark ? 'notte' : 'padel') : prefs.theme));
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta && theme) meta.content = theme.meta;
+    if (window.PadelHelp) window.PadelHelp.enabled = prefs.help;
+  }
+
+  function savePrefs() {
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { /* ignora */ }
+    applyPrefs();
+  }
+
+  /* ----------------------------------------------------------------- icone */
+
+  const ICON = {
+    plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    groups: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
+    bracket: '<svg viewBox="0 0 24 24"><path d="M3 5h5v4H3M3 15h5v4H3M8 7h3v10H8M11 12h4M15 10h6v4h-6z"/></svg>',
+    print: '<svg viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z"/></svg>',
+    download: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+    upload: '<svg viewBox="0 0 24 24"><path d="M12 20V9M7 14l5-5 5 5M5 4h14"/></svg>',
+    edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    dice: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.2"/><circle cx="15" cy="9" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="9" cy="15" r="1.2"/><circle cx="15" cy="15" r="1.2"/></svg>',
+    star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/></svg>',
+  };
+  const TROPHY = '<svg class="trophy" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h3v2a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 13.9V17h3v2H8v-2h3v-3.1A5 5 0 0 1 8.3 11H8a4 4 0 0 1-4-4V5h3zm-1 4v0a2 2 0 0 0 1 1.7V7zm12 0v1.7A2 2 0 0 0 19 7zM6 20h12v2H6z"/></svg>';
+  const COURT = `<svg class="court" viewBox="0 0 200 110" aria-hidden="true">
+      <rect class="c-floor" x="5" y="5" width="190" height="100" rx="6"/>
+      <rect class="c-line" x="15" y="15" width="170" height="80"/>
+      <line class="c-line" x1="55" y1="15" x2="55" y2="95"/><line class="c-line" x1="145" y1="15" x2="145" y2="95"/>
+      <line class="c-line" x1="55" y1="55" x2="145" y2="55"/>
+      <line class="c-net" x1="100" y1="8" x2="100" y2="102"/>
+      <circle class="c-ball" cx="128" cy="36" r="7"/></svg>`;
+
+  /* --------------------------------------------------------------- utilità */
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+  const sel = (cond) => (cond ? 'selected' : '');
+  const name = (id) => esc(C.teamName(TM[id]));
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    return d && m && y ? `${d}/${m}/${y}` : iso;
+  }
+
+  function parseScore(v) {
+    const s = String(v).trim();
+    if (s === '') return null;
+    const n = Number(s);
+    return Number.isInteger(n) && n >= 0 && n <= 99 ? n : null;
+  }
+
+  function toast(msg, warn) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show' + (warn ? ' warn' : '');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => { el.className = ''; }, 2800);
+  }
+
+  function persist() {
+    if (t && !S.save(t)) toast('Attenzione: salvataggio non riuscito', true);
+  }
+
+  // Salva e ridisegna dopo che il focus si è spostato sul campo successivo.
+  function commit() {
+    persist();
+    setTimeout(render, 0);
+  }
+
+  function go(newTab) {
+    tab = newTab;
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function empty(msg, gotoTab, label) {
+    return `<section class="card empty">${COURT}<p>${msg}</p>
+      ${gotoTab ? `<button class="btn primary" data-action="goto" data-tab="${gotoTab}">${label}</button>` : ''}</section>`;
+  }
+
+  function countHint(n) {
+    const desc = C.describeSizes(n);
+    return desc
+      ? `${n} coppie → ${desc} · ${C.seedCount(n)} teste di serie.`
+      : `<span class="warn">Con ${n} coppie non si possono fare gironi da 3 o 4.</span>`;
+  }
+
+  function courtOptions(current) {
+    let o = '';
+    for (let c = 1; c <= t.courts; c++) o += `<option value="${c}" ${sel(c === current)}>${c}</option>`;
+    return o;
+  }
+
+  /* ---------------------------------------------------------------- render */
+
+  function render() {
+    TM = t ? C.indexTeams(t) : {};
+    const active = document.activeElement;
+    const focusKey = ui.focus || (active && active.dataset ? active.dataset.fk : null);
+    ui.focus = null;
+
+    tabsEl.querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === tab);
+      b.disabled = !t && b.dataset.tab !== 'tornei' && b.dataset.tab !== 'impostazioni';
+    });
+    currentNameEl.textContent = t ? t.name + (t.date ? ' · ' + formatDate(t.date) : '') : '';
+
+    const views = {
+      tornei: viewTornei, coppie: viewCoppie, gironi: viewGironi, classifica: viewClassifica,
+      tabellone: viewTabellone, impostazioni: viewImpostazioni,
+    };
+    const free = tab === 'tornei' || tab === 'impostazioni';
+    view.innerHTML = (t || free) && views[tab] ? views[tab]() : viewTornei();
+
+    if (focusKey) {
+      const el = view.querySelector(`[data-fk="${CSS.escape(focusKey)}"]`);
+      if (el) {
+        el.focus();
+        if (el.select && (el.type === 'number' || C.isDefaultName(el.value))) el.select();
+      }
+    }
+    try { localStorage.setItem('ppt.tab', tab); } catch (e) { /* ignora */ }
+  }
+
+  /* ---------------------------------------------------------------- tornei */
+
+  function viewTornei() {
+    const list = S.list();
+    const today = new Date().toLocaleDateString('sv');
+    return `
+    <section class="card">
+      <h2 data-help-key="sec-new">Nuovo torneo</h2>
+      <form data-form="new-t" class="grid-form">
+        <label>Nome<input name="name" required maxlength="80" placeholder="Es. Torneo d'autunno"></label>
+        <label>Data<input name="date" type="date" value="${today}"></label>
+        <label>Campi disponibili<input name="courts" type="number" min="1" max="20" value="4" inputmode="numeric" required></label>
+        <label>Numero di coppie<input name="count" type="number" min="3" max="200" value="16" inputmode="numeric" required></label>
+        <button class="btn ball" type="submit" data-help-key="new-t-submit">${ICON.plus} Crea torneo</button>
+      </form>
+      <p class="hint" id="countHint">${countHint(16)}</p>
+    </section>
+    <section class="card">
+      <h2 data-help-key="sec-saved">Tornei salvati</h2>
+      ${list.length ? `<ul class="t-list">${list.map((x) => {
+        const isCur = t && t.id === x.id;
+        return `<li class="${isCur ? 'current' : ''}">
+          <div class="t-title"><span class="t-dot"></span><div><strong>${esc(x.name)}</strong>
+            <div class="t-date">${x.date ? formatDate(x.date) : 'Senza data'}${isCur ? ' · aperto' : ''}</div></div></div>
+          <div class="row-actions">
+            ${isCur ? '' : `<button class="btn small primary" data-action="open-t" data-id="${x.id}">Apri</button>`}
+            <button class="btn small ghost" data-action="export-t" data-id="${x.id}">${ICON.download} Esporta</button>
+            <button class="btn small ghost danger" data-action="delete-t" data-id="${x.id}">Elimina</button>
+          </div></li>`;
+      }).join('')}</ul>` : '<p class="muted">Nessun torneo salvato.</p>'}
+      <div class="import">
+        <label class="btn ghost">${ICON.upload} Importa torneo da file<input type="file" accept=".json,application/json" data-change="import" hidden></label>
+      </div>
+      <p class="hint">I tornei sono salvati in questo browser. Usa <em>Esporta</em> per fare un backup o per spostare un torneo su un altro dispositivo.</p>
+    </section>`;
+  }
+
+  /* ---------------------------------------------------------------- coppie */
+
+  function viewCoppie() {
+    const n = t.teams.length;
+    const desc = C.describeSizes(n);
+    const sizes = C.groupSizes(n);
+    const s = t.settings;
+    const turns = sizes ? Math.ceil(sizes.length / t.courts) : 0;
+    const seeds = C.seedCount(n);
+    const filled = t.teams.filter(C.isTeamComplete).length;
+    const ready = sizes && filled === n;
+    const defaults = t.teams.filter((x) => C.isDefaultName(x.p1) || C.isDefaultName(x.p2)).length;
+    return `
+    <section class="card">
+      <h2 data-help-key="sec-settings">Regole e dati del torneo</h2>
+      <div class="grid-form">
+        <label>Nome<input data-change="t-name" value="${esc(t.name)}" maxlength="80"></label>
+        <label>Data<input type="date" data-change="t-date" value="${esc(t.date)}"></label>
+        <label>Campi disponibili<input type="number" min="1" max="20" inputmode="numeric" data-change="t-courts" value="${t.courts}"></label>
+        <label>Numero di coppie<input type="number" min="3" max="200" inputmode="numeric" data-change="t-count" value="${n}"></label>
+        <label>Formato delle partite<select data-change="scoreFormat">
+          ${Object.entries(C.FORMATS).map(([id, f]) => `<option value="${id}" ${sel(C.scoreFormat(t) === id)}>${f.label}</option>`).join('')}
+        </select></label>
+        <label>Confronto tra gironi da 3 e da 4<select data-change="crossGroup">
+          <option value="assoluto" ${sel(s.crossGroup === 'assoluto')}>Valori assoluti</option>
+          <option value="media" ${sel(s.crossGroup === 'media')}>Media per partita giocata</option>
+        </select></label>
+        <label>Coppie ammesse al tabellone<input type="number" min="0" inputmode="numeric" data-change="maxBracket" value="${s.maxBracket || ''}" placeholder="Tutte"></label>
+      </div>
+      <p class="hint"><strong>Confronto tra gironi:</strong> nei gironi da 3 si giocano 2 partite invece di 3; con la media per partita il confronto è più equo.</p>
+    </section>
+
+    <section class="card">
+      <h2 data-help-key="sec-teams">Coppie <span class="badge ${filled === n ? 'ok' : ''}" data-help-key="badge-teams">${filled}/${n}</span></h2>
+      ${seeds ? `<p class="hint" style="margin-top:0"><span class="tds">TdS</span> Le prime <strong>${seeds}</strong> coppie dell'elenco sono le <strong>teste di serie</strong> (una per girone), se crei i gironi con le teste di serie.
+        Mettile in ordine di forza con le frecce: la 1ª va nel girone A, la 2ª nel B, e così via.</p>` : ''}
+      <details class="bulk">
+        <summary data-help-key="bulk-summary">Incolla un elenco di coppie</summary>
+        <p class="hint">Una coppia per riga, giocatori separati da <strong>/</strong> oppure <strong>,</strong> (es. <em>Rossi / Bianchi</em>). Sostituisce prima le righe con i nomi di default.</p>
+        <textarea id="bulkText" rows="6" placeholder="Rossi / Bianchi&#10;Verdi / Neri" data-help-key="bulk-text"></textarea>
+        <button class="btn" data-action="bulk-add">Inserisci elenco</button>
+      </details>
+      ${n ? `<ol class="teams">${t.teams.map((tm, i) => `
+        <li class="${i < seeds ? 'seeded' : ''} ${C.isTeamComplete(tm) ? '' : 'incomplete'}">
+          <span class="num" data-help-key="${i < seeds ? 'team-num-tds' : 'team-num'}">${i + 1}</span>
+          <input class="${C.isDefaultName(tm.p1) ? 'is-default' : ''}" data-change="team-p1" data-nav="team" data-id="${tm.id}" data-fk="p1-${tm.id}" value="${esc(tm.p1)}" placeholder="Giocatore 1" aria-label="Giocatore 1 coppia ${i + 1}" maxlength="40" autocomplete="off">
+          <input class="${C.isDefaultName(tm.p2) ? 'is-default' : ''}" data-change="team-p2" data-nav="team" data-id="${tm.id}" data-fk="p2-${tm.id}" value="${esc(tm.p2)}" placeholder="Giocatore 2" aria-label="Giocatore 2 coppia ${i + 1}" maxlength="40" autocomplete="off">
+          <span class="row-actions">
+            <button class="icon" data-action="team-up" data-id="${tm.id}" ${i === 0 ? 'disabled' : ''} aria-label="Sposta su">↑</button>
+            <button class="icon" data-action="team-down" data-id="${tm.id}" ${i === n - 1 ? 'disabled' : ''} aria-label="Sposta giù">↓</button>
+            <button class="icon danger" data-action="team-del" data-id="${tm.id}" aria-label="Elimina">✕</button>
+          </span>
+        </li>`).join('')}</ol>` : '<p class="muted">Nessuna coppia.</p>'}
+      <button class="btn ghost" data-action="add-row" style="margin-top:12px">${ICON.plus} Aggiungi una coppia</button>
+    </section>
+
+    <section class="card">
+      <h2 data-help-key="sec-draw">${t.groups.length ? 'Rifai i gironi' : 'Crea i gironi'}</h2>
+      <p data-help-key="groups-summary" style="margin-top:0">${desc
+        ? `<strong>${n} coppie</strong> → ${desc}${turns > 1 ? ` · ${turns} turni su ${t.courts} ${t.courts === 1 ? 'campo' : 'campi'}` : ''}`
+        : `<span class="warn">Con ${n} coppie non si possono fare gironi da 3 o 4.</span>`}</p>
+      ${sizes && !ready ? `<p class="notice">Mancano <strong>${n - filled}</strong> ${n - filled === 1 ? 'coppia da completare' : 'coppie da completare'}: servono i nomi di entrambi i giocatori.</p>` : ''}
+      ${ready ? `<p class="hint" id="defaultsHint">${defaults ? `${defaults === 1 ? '1 coppia ha' : `${defaults} coppie hanno`} ancora i nomi di default: puoi creare i gironi lo stesso e correggerli dopo.` : ''}</p>` : ''}
+      <div class="draw-choice">
+        <button class="draw-option" data-action="make-groups" data-mode="casuale" data-help-key="draw-random" ${ready ? '' : 'disabled'}>
+          <span class="draw-icon">${ICON.dice}</span>
+          <span><strong>Sorteggio casuale</strong><span class="muted">Tutte le coppie vengono sorteggiate nei gironi.</span></span>
+        </button>
+        <button class="draw-option" data-action="make-groups" data-mode="teste" data-help-key="draw-seeded" ${ready ? '' : 'disabled'}>
+          <span class="draw-icon">${ICON.star}</span>
+          <span><strong>Con teste di serie</strong><span class="muted">Come nei tornei di tennis: le prime ${seeds || ''} coppie in gironi diversi, le altre sorteggiate.</span></span>
+        </button>
+      </div>
+    </section>`;
+  }
+
+  /* ---------------------------------------------------------------- gironi */
+
+  function viewGironi() {
+    if (!t.groups.length) return empty('Non ci sono ancora gironi. Inserisci le coppie e crea i gironi.', 'coppie', 'Vai alle coppie');
+    const total = t.groupMatches.length;
+    const played = t.groupMatches.filter(C.isPlayed).length;
+    const courts = [...new Set(t.groups.map((g) => g.court))].sort((a, b) => a - b);
+    if (ui.court && !courts.includes(ui.court)) ui.court = 0;
+    const groups = t.groups
+      .filter((g) => !ui.court || g.court === ui.court)
+      .slice()
+      .sort((a, b) => a.turn - b.turn || a.court - b.court || a.name.localeCompare(b.name));
+
+    return `
+    <div class="toolbar">
+      <label>Campo <select data-change="court-filter">
+        <option value="0">Tutti</option>
+        ${courts.map((c) => `<option value="${c}" ${sel(ui.court === c)}>Campo ${c}</option>`).join('')}
+      </select></label>
+      <span class="badge" data-help-key="badge-matches">${played}/${total} partite</span>
+      <span class="badge" data-help-key="badge-draw">${t.settings.drawMode === 'casuale' ? ICON.dice + ' Sorteggio casuale' : ICON.star + ' Teste di serie'}</span>
+      <span class="spacer"></span>
+      <button class="btn small ${ui.editGroups ? 'primary' : ''}" data-action="toggle-edit">${ICON.edit} ${ui.editGroups ? 'Fine modifica' : 'Modifica composizione'}</button>
+      <button class="btn small" data-action="print">${ICON.print} Stampa</button>
+    </div>
+    ${ui.editGroups ? '<p class="notice">Scegli con quale coppia di un altro girone scambiare una coppia. Le partite dei due gironi vengono rigenerate.</p>' : ''}
+    ${played === total ? `<section class="card summary no-print"><p><strong>Gironi conclusi!</strong> Tutte le partite sono state giocate.</p>
+      <button class="btn ball" data-action="goto" data-tab="classifica">Vai alla classifica ${ICON.arrow}</button></section>` : ''}
+    ${courtPlan()}
+    <div class="groups">${groups.map(groupCard).join('')}</div>`;
+  }
+
+  // Gironi raggruppati per campo, nell'ordine in cui giocano.
+  function groupsByCourt() {
+    const map = new Map();
+    t.groups.slice().sort((a, b) => a.court - b.court || a.turn - b.turn || a.name.localeCompare(b.name))
+      .forEach((g) => { if (!map.has(g.court)) map.set(g.court, []); map.get(g.court).push(g); });
+    return map;
+  }
+
+  // Serve indicare l'ordine solo se almeno un campo ospita più di un girone.
+  function courtsShared() {
+    return [...groupsByCourt().values()].some((list) => list.length > 1);
+  }
+
+  // Riquadro "Programma dei campi": spiega chi gioca subito e chi dopo.
+  function courtPlan() {
+    if (!courtsShared()) return '';
+    const rows = [...groupsByCourt()].map(([court, list]) => {
+      const clash = list.some((g, i) => i > 0 && g.turn === list[i - 1].turn);
+      const seq = list.map((g, i) => `${i === 0 ? '' : '<span class="then">poi</span>'}<span class="plan-group ${i === 0 ? 'now' : ''}">Girone ${esc(g.name)}</span>`).join(' ');
+      return `<li><span class="plan-court">Campo ${court}</span> ${seq}
+        ${clash ? '<span class="warn">· due gironi con lo stesso ordine: cambia "Ordine" in uno dei due</span>' : ''}</li>`;
+    }).join('');
+    return `<section class="card court-plan">
+      <h2 data-help-key="court-plan">Programma dei campi</h2>
+      <p class="hint" style="margin-top:0">Ci sono più gironi che campi: sullo stesso campo si gioca un girone alla volta.
+      Quando un girone ha finito tutte le sue partite, sul campo entra il girone successivo.</p>
+      <ul class="plan">${rows}</ul>
+    </section>`;
+  }
+
+  function groupCard(g) {
+    const st = C.groupStandings(t, g);
+    const matches = t.groupMatches.filter((m) => m.groupId === g.id).sort((a, b) => a.order - b.order);
+    const anyDraw = st.rows.some((r) => r.drawn);
+    const shared = courtsShared();
+    const maxTurn = Math.max(...t.groups.map((x) => x.turn)) + 1;
+    let turnOpts = '';
+    for (let i = 1; i <= maxTurn; i++) turnOpts += `<option value="${i}" ${sel(i === g.turn)}>${i}°</option>`;
+    const others = t.groups.filter((x) => x.id !== g.id);
+
+    return `
+    <section class="card">
+      <div class="group-head">
+        <div class="group-title" data-help-key="group-title">
+          <span class="group-letter">${esc(g.name)}</span>
+          <h3>Girone ${esc(g.name)}${st.complete ? '<span class="done-tag" data-help-key="group-done">✓ concluso</span>' : ''}</h3>
+        </div>
+        <span class="where">
+          <span class="chip">Campo <select data-change="g-court" data-id="${g.id}">${courtOptions(g.court)}</select></span>
+          ${shared ? `<span class="chip">Ordine <select data-change="g-turn" data-id="${g.id}">${turnOpts}</select></span>` : ''}
+        </span>
+      </div>
+      <div class="group-body">
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th data-help-key="th-pos">#</th><th class="l" data-help-key="th-coppia">Coppia</th><th data-help-key="th-g">G</th><th data-help-key="th-v">V</th>
+          ${anyDraw ? '<th data-help-key="th-n">N</th>' : ''}<th data-help-key="th-p">P</th><th data-help-key="th-gv">GV</th><th data-help-key="th-gp">GP</th>
+        </tr></thead>
+        <tbody>${st.rows.map((r) => `
+          <tr class="${r.pos === 1 && r.played ? 'first' : ''}">
+            <td class="pos"><span class="pos-badge">${r.pos}</span></td>
+            <td class="l">${name(r.teamId)}${r.decidedBy && r.played ? `<span class="tag" data-help-key="${r.decidedBy === 'monetina' ? 'tag-coin' : 'tag-h2h'}">pari: decide ${r.decidedBy}</span>` : ''}
+              ${ui.editGroups ? `<select data-change="swap" data-id="${r.teamId}">
+                <option value="">Scambia con…</option>
+                ${others.map((og) => `<optgroup label="Girone ${esc(og.name)}">${og.teamIds.map((id) => `<option value="${id}">${name(id)}</option>`).join('')}</optgroup>`).join('')}
+              </select>` : ''}</td>
+            <td>${r.played}</td><td class="pts">${r.won}</td>${anyDraw ? `<td>${r.drawn}</td>` : ''}<td>${r.lost}</td><td>${r.gw}</td><td>${r.gl}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="matches">${matches.map((m) => scoreBoard(m, false)).join('')}</div>
+      </div>
+    </section>`;
+  }
+
+  /* ------------------------------------------------------------ segnapunti */
+
+  // Segnapunti di una partita: una colonna per set, come nel tennis.
+  // Le colonne sono nell'ordine di inserimento: 1° set (A, B), 2° set (A, B), ...
+  function scoreBoard(m, knockout, seedNo) {
+    const n = C.setCount(t);
+    const fmt = C.scoreFormat(t);
+    const sets = m.sets || [];
+    const w = C.matchWinner(m);
+    // Al meglio dei 3: se i primi due set bastano, il terzo non serve.
+    const decided2 = n === 3 && C.evalSets(t, sets.slice(0, 2), knockout).done;
+    const kind = knockout ? 'kscore' : 'gscore';
+
+    const team = (id) => `<span class="sb-team ${w === id ? 'win' : ''} ${w && w !== id ? 'lose' : ''}">
+        ${seedNo ? `<span class="seed" data-help-key="seed">${seedNo(id)}</span>` : ''}
+        <span class="nm">${name(id)}</span>
+        ${m.done && n > 1 ? `<span class="sb-won" data-help-key="sets-won">${id === m.a ? m.sa : m.sb}</span>` : ''}
+      </span>`;
+
+    let cols = '';
+    for (let i = 0; i < n; i++) {
+      const stb = fmt === '3set-stb' && i === 2;
+      const label = n > 1 ? (stb ? 'STB' : `${i + 1}° set`) : '';
+      const [va, vb] = sets[i] || [];
+      const off = i === 2 && decided2 && va == null && vb == null;
+      const max = fmt === 'libero' || stb ? 99 : 7;
+      const input = (side, v, id) => `<input class="${m.bad ? 'bad' : ''}" type="number" inputmode="numeric" min="0" max="${max}" placeholder="–"
+          data-change="${kind}" data-id="${m.id}" data-set="${i}" data-side="${side}" data-fk="${m.id}-${i}-${side}"
+          value="${v == null ? '' : v}" aria-label="${label || 'Game'} ${esc(C.teamName(TM[id]))}" ${off ? 'disabled' : ''}>`;
+      cols += `<span class="sb-lbl" data-help-key="${stb ? 'col-stb' : 'col-set'}">${label}</span>${input('a', va, m.a)}${input('b', vb, m.b)}`;
+    }
+
+    return `<div class="sb ${m.done ? 'done' : ''} ${m.bad ? 'bad' : ''}" data-match="${m.id}" data-ko="${knockout ? 1 : 0}">
+      <div class="sb-grid"><span class="sb-lbl"></span>${team(m.a)}${team(m.b)}${cols}</div>
+      ${m.bad ? `<div class="sb-error">${esc(m.err)}</div>` : ''}
+    </div>`;
+  }
+
+  // Legge i set dal segnapunti così come sono scritti ora (anche prima del salvataggio).
+  function setsFromBoard(box) {
+    const sets = [];
+    box.querySelectorAll('input[data-set]').forEach((el) => {
+      const i = +el.dataset.set;
+      sets[i] = sets[i] || [null, null];
+      sets[i][el.dataset.side === 'a' ? 0 : 1] = parseScore(el.value);
+    });
+    return sets;
+  }
+
+  // Set della partita con il nuovo valore del campo modificato (senza set vuoti in fondo).
+  function setsWith(m, el) {
+    const sets = (m.sets || []).map((s) => s.slice());
+    const i = +el.dataset.set;
+    while (sets.length <= i) sets.push([null, null]);
+    sets[i][el.dataset.side === 'a' ? 0 : 1] = parseScore(el.value);
+    while (sets.length && sets[sets.length - 1].every((v) => v == null)) sets.pop();
+    return sets;
+  }
+
+  /* ------------------------------------------------------------ classifica */
+
+  function viewClassifica() {
+    if (!t.groups.length) return empty('La classifica sarà disponibile dopo aver creato i gironi.', 'coppie', 'Vai alle coppie');
+    const { ranking, complete } = C.overallRanking(t);
+    const limit = t.settings.maxBracket > 0 ? Math.min(t.settings.maxBracket, ranking.length) : ranking.length;
+    const plan = C.bracketPlan(limit);
+    const missing = t.groupMatches.filter((m) => !C.isPlayed(m)).length;
+    const avg = t.settings.crossGroup === 'media';
+    const fmt = (r, f) => (avg && r.played ? (r[f] / r.played).toFixed(2).replace('.', ',') : r[f]);
+    const bandNames = ['Prime classificate', 'Seconde classificate', 'Terze classificate', 'Quarte classificate'];
+
+    // Chi entra al turno più avanzato è evidenziato con il colore pallina.
+    const topEntry = plan ? Math.max(...plan.entry) : 0;
+    const zoneClass = (entry) => (entry === topEntry && topEntry > 0 ? 'z2' : entry > 0 ? 'z1' : 'z0');
+    let rows = '';
+    let lastPos = 0;
+    ranking.forEach((r, i) => {
+      if (r.groupPos !== lastPos) {
+        rows += `<tr class="band"><td colspan="8" data-help-key="band">${bandNames[r.groupPos - 1] || r.groupPos + 'ª classificate'} dei gironi</td></tr>`;
+        lastPos = r.groupPos;
+      }
+      let zone = '<span class="zone out" data-help-key="zone-out">Esclusa</span>';
+      if (plan && i < limit) {
+        const entry = plan.entry[i];
+        const round = C.roundName(plan.total, entry);
+        const where = {
+          Finale: 'in finale', Semifinali: 'in semifinale', 'Quarti di finale': 'ai quarti di finale',
+          'Ottavi di finale': 'agli ottavi di finale', 'Sedicesimi di finale': 'ai sedicesimi di finale',
+        }[round] || 'al turno ' + (entry + 1);
+        const help = entry === 0
+          ? `Gioca dal primo turno del tabellone (${round.toLowerCase()}).`
+          : `Salta ${entry === 1 ? 'il primo turno' : `i primi ${entry} turni`} ed entra direttamente ${where}.`;
+        zone = `<span class="zone ${zoneClass(entry)}" data-help="${esc(help)}">${round}</span>`;
+      }
+      rows += `<tr class="${i < 4 && complete ? 'first' : ''}">
+        <td class="pos"><span class="pos-badge">${r.rank}</span></td>
+        <td class="l">${name(r.teamId)}</td>
+        <td>${esc(r.groupName)}</td>
+        <td>${r.played}</td><td>${fmt(r, 'won')}</td><td>${fmt(r, 'gw')}</td><td>${fmt(r, 'gl')}</td>
+        <td class="l">${zone}</td>
+      </tr>`;
+    });
+
+    let action;
+    if (!complete) {
+      action = `<p class="notice">Classifica provvisoria: ${missing === 1 ? 'manca 1 partita' : `mancano ${missing} partite`} dei gironi.</p>`;
+    } else if (!t.knockout) {
+      action = `<section class="card summary"><p><strong>Gironi conclusi.</strong> Il tabellone mette di fronte le più forti alle più deboli.</p>
+        <button class="btn ball" data-action="make-ko">${ICON.bracket} Genera il tabellone</button></section>`;
+    } else {
+      action = `<section class="card summary"><p>Il tabellone è già stato generato.</p>
+        <span class="row-actions"><button class="btn primary" data-action="goto" data-tab="tabellone">Vai al tabellone ${ICON.arrow}</button>
+        <button class="btn ghost danger" data-action="remake-ko">Rigenera</button></span></section>`;
+    }
+
+    // Le prime 4 in evidenza: sono quelle che entrano direttamente ai quarti.
+    const podium = ranking.slice(0, Math.min(4, limit)).map((r) => `
+      <div class="podium-item" data-help="${esc(complete ? 'Tra le prime 4 della classifica generale.' : 'Posizione provvisoria: mancano ancora partite dei gironi.')}">
+        <span class="rank">${r.rank}</span>
+        <div><div class="who">${name(r.teamId)}</div><div class="meta">Girone ${esc(r.groupName)} · ${r.won} vinte · ${r.gw} game</div></div>
+      </div>`).join('');
+
+    return `
+    <div class="toolbar"><span class="spacer"></span><button class="btn small" data-action="print">${ICON.print} Stampa</button></div>
+    <div class="no-print">${action}</div>
+    <div class="podium">${podium}</div>
+    <section class="card">
+      <h2 data-help-key="sec-ranking">Classifica generale</h2>
+      <div class="table-wrap"><table>
+        <thead><tr>
+          <th data-help-key="th-pos">#</th><th class="l" data-help-key="th-coppia">Coppia</th><th data-help-key="th-gir">Gir.</th><th data-help-key="th-g">G</th>
+          <th data-help-key="th-v${avg ? '-media' : ''}">V</th><th data-help-key="th-gv${avg ? '-media' : ''}">GV</th><th data-help-key="th-gp${avg ? '-media' : ''}">GP</th><th class="l" data-help-key="th-entra">Entra in</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <p class="hint">Prima tutte le prime dei gironi, poi le seconde, e così via. Dentro ogni fascia contano: partite vinte, game vinti, game persi (meno è meglio), poi sorteggio.
+      ${avg ? 'Valori in media per partita giocata.' : ''}</p>
+    </section>`;
+  }
+
+  /* ------------------------------------------------------------- tabellone */
+
+  function viewTabellone() {
+    const ko = t.knockout;
+    if (!ko) return empty('Il tabellone si genera dalla classifica quando i gironi sono conclusi.', 'classifica', 'Vai alla classifica');
+    const champ = C.champion(t);
+    const seedNo = (id) => ko.seeds.indexOf(id) + 1;
+
+    let alive = 0;
+    const cols = [];
+    for (let r = 0; r < ko.total; r++) {
+      const entering = ko.seeds.filter((id) => ko.entry[id] === r);
+      const round = ko.rounds[r];
+      const title = C.roundName(ko.total, r);
+      const isFinal = r === ko.total - 1;
+      const head = `<h3 data-help-key="round-title">${isFinal ? TROPHY : ''}${title}</h3>`;
+      if (round) {
+        cols.push(`<div class="round ${isFinal ? 'final' : ''}">${head}<div class="round-matches">${round.matches.map((m) => kMatch(m, seedNo)).join('')}</div></div>`);
+      } else {
+        cols.push(`<div class="round ${isFinal ? 'final' : ''}">${head}<div class="round-matches"><div class="pending" data-help-key="pending">
+          In attesa di ${alive} ${alive === 1 ? 'vincente' : 'vincenti'} del turno precedente.
+          ${entering.length ? `<br>Entrano direttamente:<ul>${entering.map((id) => `<li>(${seedNo(id)}) ${name(id)}</li>`).join('')}</ul>` : ''}
+        </div></div></div>`);
+      }
+      alive = (alive + entering.length) / 2;
+    }
+
+    return `
+    <div class="toolbar"><span class="badge" data-help-key="badge-ko">${ko.seeds.length} coppie</span><span class="spacer"></span>
+      <button class="btn small" data-action="print">${ICON.print} Stampa</button></div>
+    ${champ ? `<section class="card champion" data-help-key="champion">${TROPHY}
+      <div><div class="label">Vincitori del torneo</div><div class="who">${name(champ)}</div></div>${TROPHY}</section>` : ''}
+    <div class="bracket">${cols.join('')}</div>
+    <p class="hint">Il numero nel cerchio è la posizione nella classifica generale. In ogni turno la coppia meglio classificata affronta la peggiore rimasta.
+    Nel tabellone non sono ammessi pareggi.</p>`;
+  }
+
+  function kMatch(m, seedNo) {
+    return `<div class="kmatch">
+      ${scoreBoard(m, true, seedNo)}
+      <div class="kmeta">Campo <select data-change="k-court" data-id="${m.id}">${courtOptions(m.court)}</select></div>
+    </div>`;
+  }
+
+  /* ---------------------------------------------------------- impostazioni */
+
+  function themePreview(p) {
+    const vars = `--p-bg:${p.bg};--p-hero1:${p.hero1};--p-hero2:${p.hero2};--p-nav:${p.nav};--p-card:${p.card};--p-text:${p.text};--p-ball:${p.ball};--p-score:${p.score}`;
+    return `<span class="preview" style="${vars}">
+      <span class="p-hero"></span><span class="p-nav"><i></i><i></i><i></i></span>
+      <span class="p-card"><b></b><s></s><s></s></span><span class="p-ball"></span></span>`;
+  }
+
+  function viewImpostazioni() {
+    const padel = THEMES.find((x) => x.id === 'padel').p;
+    const notte = THEMES.find((x) => x.id === 'notte').p;
+    const nTornei = S.list().length;
+    return `
+    <section class="card">
+      <h2 data-help-key="sec-theme">Tema</h2>
+      <div class="theme-grid">${THEMES.map((th) => `
+        <button class="theme-card ${prefs.theme === th.id ? 'active' : ''}" data-action="set-theme" data-id="${th.id}" data-help="${esc(th.desc)}">
+          ${th.id === 'auto' ? `<span class="preview-split">${themePreview(padel)}${themePreview(notte)}</span>` : themePreview(th.p)}
+          <span class="tname">${th.name}${prefs.theme === th.id ? '<span class="check">✓</span>' : ''}</span>
+          <span class="tdesc">${th.desc}</span>
+        </button>`).join('')}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 data-help-key="sec-size">Dimensione del testo</h2>
+      <div class="segmented" role="group" aria-label="Dimensione del testo">
+        ${SIZES.map((s, i) => `<button class="${prefs.size === s.id ? 'active' : ''}" data-action="set-size" data-id="${s.id}">
+          <span class="aa" style="font-size:${0.9 + i * 0.2}em">${s.aa}</span>${s.name}</button>`).join('')}
+      </div>
+      <p class="hint">Utile a bordo campo: con il testo più grande i punteggi si leggono meglio dal telefono.</p>
+    </section>
+
+    <section class="card">
+      <h2 data-help-key="sec-help">Aiuto</h2>
+      <div class="switch-row">
+        <p>Mostra una spiegazione passando il mouse su pulsanti, campi e colonne delle tabelle.</p>
+        <label class="switch"><input type="checkbox" data-change="help-toggle" ${prefs.help ? 'checked' : ''} aria-label="Aiuto al passaggio del mouse"><span></span></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 data-help-key="sec-info">Informazioni</h2>
+      <p class="muted" style="margin:0">DF Padel Cup · ${nTornei} ${nTornei === 1 ? 'torneo salvato' : 'tornei salvati'} in questo browser.<br>
+      Tema, testo e aiuto valgono solo per questo dispositivo e non modificano i tornei.</p>
+    </section>`;
+  }
+
+  /* ---------------------------------------------------------------- azioni */
+
+  function openTournament(id) {
+    const x = S.load(id);
+    if (!x) { toast('Torneo non trovato', true); return; }
+    t = C.normalize(x);
+    S.setCurrentId(id);
+    ui.court = 0;
+    ui.editGroups = false;
+    go(t.knockout ? 'tabellone' : t.groups.length ? 'gironi' : 'coppie');
+  }
+
+  function exportTournament(id) {
+    const x = S.load(id);
+    if (!x) return;
+    const blob = new Blob([JSON.stringify(x, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    const slug = (x.name || 'torneo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${slug || 'torneo'}${x.date ? '-' + x.date : ''}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function importTournament(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      let x;
+      try { x = JSON.parse(reader.result); } catch (e) { toast('File non valido', true); return; }
+      if (!x || !x.id || !Array.isArray(x.teams) || !Array.isArray(x.groups) || !x.settings) {
+        toast('Il file non contiene un torneo valido', true);
+        return;
+      }
+      if (S.load(x.id) && !confirm('Questo torneo è già presente. Vuoi sostituirlo?\n(Annulla per importarlo come copia)')) {
+        x.id = C.newTournament({}).id;
+        x.name += ' (copia)';
+      }
+      S.save(C.normalize(x));
+      openTournament(x.id);
+      toast('Torneo importato');
+    };
+    reader.readAsText(file);
+  }
+
+  // Aggiungere o togliere coppie rende i gironi non più validi.
+  function allowTeamChange() {
+    if (!t.groups.length) return true;
+    const hasResults = t.groupMatches.some(C.isPlayed) || t.knockout;
+    if (hasResults && !confirm('I gironi sono già stati creati e ci sono risultati.\nModificando le coppie, gironi e risultati verranno cancellati. Continuare?')) return false;
+    t.groups = [];
+    t.groupMatches = [];
+    t.knockout = null;
+    toast('Gironi cancellati: ricreali quando le coppie sono pronte');
+    return true;
+  }
+
+  // Riempie prima le righe vuote o con i nomi di default, poi aggiunge coppie in fondo se l'elenco non basta.
+  function fillTeams(pairs) {
+    const empties = t.teams.filter(C.isTeamPlaceholder);
+    const extra = pairs.length - empties.length;
+    if (extra > 0 && !allowTeamChange()) return null;
+    pairs.forEach(([p1, p2], i) => {
+      const tm = empties[i] || t.teams[t.teams.push(C.newTeam('', '')) - 1];
+      tm.p1 = (p1 || '').trim();
+      tm.p2 = (p2 || '').trim();
+    });
+    return { filled: Math.min(pairs.length, empties.length), added: Math.max(0, extra) };
+  }
+
+  function reassignCourts() {
+    t.groups.forEach((g, i) => {
+      g.court = (i % t.courts) + 1;
+      g.turn = Math.floor(i / t.courts) + 1;
+    });
+    if (t.knockout) {
+      t.knockout.rounds.forEach((r) => r.matches.forEach((m, i) => { if (m.court > t.courts) m.court = (i % t.courts) + 1; }));
+    }
+  }
+
+  const actions = {
+    goto: (el) => go(el.dataset.tab),
+    print: () => window.print(),
+
+    'set-theme': (el) => {
+      prefs.theme = el.dataset.id;
+      savePrefs();
+      render();
+      toast('Tema: ' + THEMES.find((x) => x.id === prefs.theme).name);
+    },
+    'set-size': (el) => { prefs.size = el.dataset.id; savePrefs(); render(); },
+
+    'open-t': (el) => openTournament(el.dataset.id),
+    'export-t': (el) => exportTournament(el.dataset.id),
+    'delete-t': (el) => {
+      const x = S.load(el.dataset.id);
+      if (!x || !confirm(`Eliminare il torneo "${x.name}"?\nL'operazione non si può annullare: esportalo prima se vuoi tenerne una copia.`)) return;
+      S.remove(x.id);
+      if (t && t.id === x.id) t = null;
+      render();
+      toast('Torneo eliminato');
+    },
+
+    'bulk-add': () => {
+      const ta = document.getElementById('bulkText');
+      const pairs = ta.value.split('\n').map((l) => l.trim()).filter(Boolean)
+        .map((l) => l.split(/\s*[/,;\t]\s*|\s+-\s+/).filter(Boolean))
+        .map((p) => [p[0], p.slice(1).join(' ')]);
+      if (!pairs.length) { toast('Nessuna coppia da inserire'); return; }
+      const res = fillTeams(pairs);
+      if (!res) return;
+      commit();
+      toast(res.added
+        ? `${pairs.length} coppie inserite (${res.added} ${res.added === 1 ? 'riga aggiunta' : 'righe aggiunte'} in fondo)`
+        : `${pairs.length} coppie inserite`);
+    },
+    'add-row': () => {
+      if (!allowTeamChange()) return;
+      const tm = C.defaultTeam(t.teams.length + 1);
+      t.teams.push(tm);
+      persist();
+      ui.focus = 'p1-' + tm.id;
+      render();
+    },
+    'team-up': (el) => moveTeam(el.dataset.id, -1),
+    'team-down': (el) => moveTeam(el.dataset.id, 1),
+    'team-del': (el) => {
+      const tm = TM[el.dataset.id];
+      if (!confirm(`Eliminare la coppia ${C.teamName(tm)}?`)) return;
+      if (!allowTeamChange()) return;
+      t.teams = t.teams.filter((x) => x.id !== tm.id);
+      commit();
+    },
+    'make-groups': (el) => {
+      const mode = el.dataset.mode === 'casuale' ? 'casuale' : 'teste';
+      if (t.groups.length) {
+        const hasResults = t.groupMatches.some(C.isPlayed) || t.knockout;
+        const msg = hasResults
+          ? 'Rifare i gironi cancella tutti i risultati inseriti e il tabellone. Continuare?'
+          : 'I gironi attuali verranno sostituiti con un nuovo sorteggio. Continuare?';
+        if (!confirm(msg)) return;
+      }
+      t.settings.drawMode = mode;
+      C.buildGroups(t);
+      ui.court = 0;
+      persist();
+      go('gironi');
+      toast(mode === 'casuale' ? 'Gironi sorteggiati' : 'Gironi creati con le teste di serie');
+    },
+
+    'toggle-edit': () => { ui.editGroups = !ui.editGroups; render(); },
+
+    'make-ko': () => {
+      C.createKnockout(t);
+      persist();
+      go('tabellone');
+      toast('Tabellone generato');
+    },
+    'remake-ko': () => {
+      if (!confirm('Rigenerare il tabellone? I risultati già inseriti nel tabellone verranno cancellati.')) return;
+      C.createKnockout(t);
+      persist();
+      go('tabellone');
+    },
+  };
+
+  // Salva un nome senza ridisegnare la pagina, così chi scrive veloce non perde
+  // la selezione del campo successivo. Ridisegna solo se cambia lo stato della coppia.
+  function setTeamName(el, field) {
+    const tm = TM[el.dataset.id];
+    const wasComplete = C.isTeamComplete(tm);
+    tm[field] = el.value.trim();
+    persist();
+    if (C.isTeamComplete(tm) !== wasComplete) { setTimeout(render, 0); return; }
+    const hint = document.getElementById('defaultsHint');
+    if (hint) {
+      const d = t.teams.filter((x) => C.isDefaultName(x.p1) || C.isDefaultName(x.p2)).length;
+      hint.textContent = d ? `${d === 1 ? '1 coppia ha' : `${d} coppie hanno`} ancora i nomi di default: puoi creare i gironi lo stesso e correggerli dopo.` : '';
+    }
+  }
+
+  function moveTeam(id, dir) {
+    const i = t.teams.findIndex((x) => x.id === id);
+    const j = i + dir;
+    if (j < 0 || j >= t.teams.length) return;
+    [t.teams[i], t.teams[j]] = [t.teams[j], t.teams[i]];
+    commit();
+  }
+
+  const changes = {
+    import: (el) => { if (el.files[0]) importTournament(el.files[0]); },
+    'help-toggle': (el) => {
+      prefs.help = el.checked;
+      savePrefs();
+      toast(prefs.help ? 'Aiuto attivato' : 'Aiuto disattivato');
+    },
+
+    't-name': (el) => { t.name = el.value.trim() || 'Torneo'; commit(); },
+    't-date': (el) => { t.date = el.value; commit(); },
+    't-courts': (el) => {
+      const n = C.clampCourts(el.value);
+      if (n === t.courts) { el.value = n; return; }
+      t.courts = n;
+      if (t.groups.length) { reassignCourts(); toast('Campi e turni dei gironi riassegnati'); }
+      commit();
+    },
+    't-count': (el) => {
+      const n = Math.min(200, Math.max(3, parseInt(el.value, 10) || 0));
+      if (n === t.teams.length) { el.value = n; return; }
+      const lost = C.filledLostOnResize(t, n);
+      if (lost && !confirm(`Per scendere a ${n} coppie verranno eliminate le ultime ${lost} ${lost === 1 ? 'coppia compilata' : 'coppie compilate'} dell'elenco. Continuare?`)) {
+        render();
+        return;
+      }
+      if (!allowTeamChange()) { render(); return; }
+      C.resizeTeams(t, n);
+      commit();
+    },
+    crossGroup: (el) => { t.settings.crossGroup = el.value; commit(); },
+    maxBracket: (el) => {
+      const n = parseInt(el.value, 10);
+      t.settings.maxBracket = Number.isFinite(n) && n >= 2 ? n : 0;
+      if (t.knockout) toast('Vale per il prossimo tabellone generato');
+      commit();
+    },
+    'team-p1': (el) => setTeamName(el, 'p1'),
+    'team-p2': (el) => setTeamName(el, 'p2'),
+
+    'court-filter': (el) => { ui.court = parseInt(el.value, 10) || 0; render(); },
+    'g-court': (el) => { t.groups.find((g) => g.id === el.dataset.id).court = parseInt(el.value, 10); commit(); },
+    'g-turn': (el) => { t.groups.find((g) => g.id === el.dataset.id).turn = parseInt(el.value, 10); commit(); },
+    swap: (el) => {
+      const a = el.dataset.id, b = el.value;
+      if (!b) return;
+      const gA = t.groups.find((g) => g.teamIds.includes(a));
+      const gB = t.groups.find((g) => g.teamIds.includes(b));
+      const lose = C.groupHasResults(t, gA.id) || C.groupHasResults(t, gB.id) || t.knockout;
+      if (lose && !confirm(`I risultati dei gironi ${gA.name} e ${gB.name}${t.knockout ? ' e il tabellone' : ''} verranno cancellati. Continuare?`)) {
+        render();
+        return;
+      }
+      C.swapTeams(t, a, b);
+      commit();
+    },
+
+    gscore: (el) => {
+      const m = t.groupMatches.find((x) => x.id === el.dataset.id);
+      if (t.knockout) {
+        if (!confirm('Il tabellone è già stato generato: modificando un risultato dei gironi verrà cancellato. Continuare?')) { render(); return; }
+        t.knockout = null;
+      }
+      C.setGroupScore(t, m.id, setsWith(m, el));
+      commit();
+      if (m.bad) toast(m.err, true);
+    },
+
+    kscore: (el) => {
+      const m = t.knockout.rounds.flatMap((r) => r.matches).find((x) => x.id === el.dataset.id);
+      const sets = setsWith(m, el);
+      const next = { ...m };
+      C.applyScore(t, next, sets, true);
+      if (C.matchWinner(next) !== C.matchWinner(m) && C.knockoutHasResultsAfter(t, m.id)
+        && !confirm('Cambia il vincitore: i risultati dei turni successivi verranno cancellati. Continuare?')) {
+        render();
+        return;
+      }
+      C.setKnockoutScore(t, m.id, sets);
+      commit();
+      if (m.bad) toast(m.err, true);
+      else if (C.champion(t)) toast('🏆 Torneo concluso!');
+    },
+    scoreFormat: (el) => {
+      t.settings.scoreFormat = el.value;
+      C.revalidateScores(t);
+      commit();
+      const bad = t.groupMatches.concat(t.knockout ? t.knockout.rounds.flatMap((r) => r.matches) : []).filter((m) => m.bad).length;
+      toast(bad ? `Formato cambiato: ${bad} ${bad === 1 ? 'risultato da correggere' : 'risultati da correggere'}` : 'Formato delle partite aggiornato', !!bad);
+    },
+    'k-court': (el) => {
+      const m = t.knockout.rounds.flatMap((r) => r.matches).find((x) => x.id === el.dataset.id);
+      m.court = parseInt(el.value, 10);
+      commit();
+    },
+  };
+
+  /* ---------------------------------------------------------------- eventi */
+
+  tabsEl.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-tab]');
+    if (b && !b.disabled) go(b.dataset.tab);
+  });
+
+  view.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (el && actions[el.dataset.action]) {
+      e.preventDefault();
+      actions[el.dataset.action](el);
+    }
+  });
+
+  view.addEventListener('change', (e) => {
+    const el = e.target.closest('[data-change]');
+    if (el && changes[el.dataset.change]) changes[el.dataset.change](el);
+  });
+
+  view.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const data = Object.fromEntries(new FormData(f));
+    if (f.dataset.form === 'new-t') {
+      const count = parseInt(data.count, 10);
+      if (!C.groupSizes(count)) {
+        toast(`Con ${count || 0} coppie non si possono fare gironi da 3 o 4`, true);
+        return;
+      }
+      t = C.newTournament({ name: data.name.trim(), date: data.date, courts: data.courts, count });
+      S.save(t);
+      S.setCurrentId(t.id);
+      ui.focus = t.teams.length ? 'p1-' + t.teams[0].id : null;
+      go('coppie');
+      toast(`Torneo creato con ${count} coppie: scrivi i nomi o crea subito i gironi`);
+    }
+  });
+
+  // Cliccando su un nome di default lo seleziona, così scrivendo lo si sostituisce.
+  view.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (el.matches('input[data-nav="team"]') && C.isDefaultName(el.value)) {
+      el.select();
+      // Con il mouse il clic sposta il cursore dopo il focus: riseleziona subito dopo.
+      setTimeout(() => { if (document.activeElement === el && C.isDefaultName(el.value)) el.select(); }, 0);
+    }
+  });
+  view.addEventListener('input', (e) => {
+    if (e.target.matches('input[data-nav="team"]')) e.target.classList.toggle('is-default', C.isDefaultName(e.target.value));
+  });
+
+  // Anteprima dei gironi mentre si scrive il numero di coppie.
+  view.addEventListener('input', (e) => {
+    if (e.target.name === 'count') {
+      const hint = document.getElementById('countHint');
+      if (hint) hint.innerHTML = countHint(parseInt(e.target.value, 10) || 0);
+    }
+  });
+
+  // Invio passa al campo successivo (punteggi e nomi delle coppie).
+  view.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.matches('input[data-side], input[data-nav]')) return;
+    e.preventDefault();
+    const sel = e.target.dataset.nav ? `input[data-nav="${e.target.dataset.nav}"]` : 'input[data-side]';
+    const inputs = [...view.querySelectorAll(sel)].filter((i) => !i.disabled);
+    const idx = inputs.indexOf(e.target);
+    let next = inputs[idx + 1];
+    // Se la partita è già decisa (es. 2-0 nei primi due set) salta al segnapunti successivo.
+    const box = e.target.closest('[data-match]');
+    if (box && next && next.closest('[data-match]') === box
+      && C.evalSets(t, setsFromBoard(box), box.dataset.ko === '1').done) {
+      next = inputs.slice(idx + 1).find((i) => i.closest('[data-match]') !== box);
+    }
+    if (!next) { e.target.blur(); return; }
+    next.focus();
+    if (next.type === 'number' || C.isDefaultName(next.value)) next.select();
+  });
+
+  /* ---------------------------------------------------------------- avvio */
+
+  applyPrefs();
+  // Con il tema automatico aggiorna il colore della barra del browser se cambia la modalità del dispositivo.
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyPrefs);
+  } catch (e) { /* browser datato */ }
+
+  const currentId = S.getCurrentId();
+  if (currentId) t = S.load(currentId);
+  if (t) C.normalize(t);
+  if (t) {
+    let saved = null;
+    try { saved = localStorage.getItem('ppt.tab'); } catch (e) { /* ignora */ }
+    tab = saved || 'coppie';
+  }
+  render();
+})();

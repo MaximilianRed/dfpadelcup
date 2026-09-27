@@ -1,0 +1,563 @@
+/*
+ * DF Padel Cup - regole del torneo.
+ * Solo logica pura: nessun accesso a DOM o salvataggio.
+ * Funziona sia nel browser (window.PadelCore) sia in Node (require).
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.PadelCore = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  // Ordine delle partite nel girone: nessuna coppia gioca due volte di fila (girone da 4).
+  const PAIRINGS = {
+    4: [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]],
+    3: [[0, 1], [1, 2], [2, 0]],
+  };
+
+  function uid(prefix) {
+    return prefix + '_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+  }
+
+  function shuffle(arr, rng) {
+    const a = arr.slice();
+    const r = rng || Math.random;
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(r() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function newTournament({ name, date, courts, count }) {
+    const teams = [];
+    for (let i = 0; i < (parseInt(count, 10) || 0); i++) teams.push(defaultTeam(i + 1));
+    return {
+      version: 1,
+      id: uid('t'),
+      name: name || 'Torneo',
+      date: date || '',
+      courts: clampCourts(courts),
+      settings: {
+        drawMode: 'teste', // 'teste' (teste di serie + sorteggio) | 'casuale'
+        scoreFormat: '1set', // '1set' | '3set' | '3set-stb' | 'libero' (vedi FORMATS)
+        crossGroup: 'assoluto', // 'assoluto' | 'media' (per partita giocata)
+        maxBracket: 0, // 0 = tutte le coppie entrano nel tabellone
+      },
+      teams,
+      groups: [],
+      groupMatches: [],
+      knockout: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+  }
+
+  function clampCourts(c) {
+    const n = parseInt(c, 10);
+    if (!Number.isFinite(n)) return 1;
+    return Math.min(20, Math.max(1, n));
+  }
+
+  function newTeam(p1, p2) {
+    return { id: uid('c'), p1: (p1 || '').trim(), p2: (p2 || '').trim(), coin: Math.random() };
+  }
+
+  function teamName(team) {
+    if (!team || (!team.p1 && !team.p2)) return '—';
+    return team.p1 && team.p2 ? team.p1 + ' / ' + team.p2 : team.p1 || team.p2;
+  }
+
+  // Una coppia è pronta quando ha entrambi i giocatori.
+  function isTeamComplete(team) {
+    return !!(team.p1 && team.p2);
+  }
+
+  function isTeamEmpty(team) {
+    return !team.p1 && !team.p2;
+  }
+
+  // Nomi di default ("Giocatore 3A" / "Giocatore 3B"): le righe nascono già
+  // compilate così i gironi si possono creare subito e i nomi correggere dopo.
+  const DEFAULT_NAME = /^Giocatore \d+[AB]$/;
+
+  function defaultTeam(n) {
+    return newTeam('Giocatore ' + n + 'A', 'Giocatore ' + n + 'B');
+  }
+
+  function isDefaultName(s) {
+    return DEFAULT_NAME.test(s || '');
+  }
+
+  // Riga ancora da riempire: vuota o con i soli nomi di default.
+  function isTeamPlaceholder(team) {
+    return isTeamEmpty(team) || (isDefaultName(team.p1) && isDefaultName(team.p2));
+  }
+
+  // Porta l'elenco a n coppie: aggiunge righe con nomi di default in fondo, oppure
+  // toglie prima le righe ancora da riempire e poi, se serve, le ultime coppie.
+  function resizeTeams(t, n) {
+    while (t.teams.length < n) t.teams.push(defaultTeam(t.teams.length + 1));
+    for (let i = t.teams.length - 1; i >= 0 && t.teams.length > n; i--) {
+      if (isTeamPlaceholder(t.teams[i])) t.teams.splice(i, 1);
+    }
+    if (t.teams.length > n) t.teams.length = n;
+  }
+
+  // Quante coppie con nomi veri verrebbero eliminate portando l'elenco a n coppie.
+  function filledLostOnResize(t, n) {
+    const placeholders = t.teams.filter(isTeamPlaceholder).length;
+    return Math.max(0, t.teams.length - n - placeholders);
+  }
+
+  /* ---------------------------------------------------------------- GIRONI */
+
+  // Più gironi da 4 possibile, il resto da 3. null se impossibile (1, 2, 5 coppie).
+  function groupSizes(n) {
+    if (n < 3 || n === 5) return null;
+    const g = Math.ceil(n / 4);
+    const threes = 4 * g - n;
+    const sizes = [];
+    for (let i = 0; i < g; i++) sizes.push(i < g - threes ? 4 : 3);
+    return sizes;
+  }
+
+  function describeSizes(n) {
+    const sizes = groupSizes(n);
+    if (!sizes) return null;
+    const fours = sizes.filter((s) => s === 4).length;
+    const threes = sizes.length - fours;
+    const parts = [];
+    if (fours) parts.push(fours + (fours === 1 ? ' girone da 4' : ' gironi da 4'));
+    if (threes) parts.push(threes + (threes === 1 ? ' girone da 3' : ' gironi da 3'));
+    return parts.join(' + ');
+  }
+
+  // Numero di teste di serie: una per girone.
+  function seedCount(n) {
+    const sizes = groupSizes(n);
+    return sizes ? sizes.length : 0;
+  }
+
+  // Crea i gironi.
+  //  - 'teste':   le prime G coppie dell'elenco sono teste di serie (la 1ª nel girone A,
+  //               la 2ª nel B, ...); tutte le altre vengono sorteggiate.
+  //  - 'casuale': tutte le coppie sorteggiate.
+  function buildGroups(t, rng) {
+    const sizes = groupSizes(t.teams.length);
+    if (!sizes) throw new Error('Numero di coppie non valido per gironi da 3 o 4.');
+    const G = sizes.length;
+    const order = t.settings.drawMode === 'casuale'
+      ? shuffle(t.teams, rng)
+      : t.teams.slice(0, G).concat(shuffle(t.teams.slice(G), rng));
+    const buckets = sizes.map(() => []);
+    let k = 0;
+    for (let pos = 0; pos < 4; pos++) {
+      const idx = [...Array(G).keys()];
+      if (pos % 2 === 1) idx.reverse();
+      for (const g of idx) if (sizes[g] > pos) buckets[g].push(order[k++].id);
+    }
+    t.groups = buckets.map((teamIds, i) => ({
+      id: uid('g'),
+      name: LETTERS[i] || 'G' + (i + 1),
+      teamIds,
+      court: (i % t.courts) + 1,
+      turn: Math.floor(i / t.courts) + 1,
+    }));
+    t.groupMatches = [];
+    t.groups.forEach((g) => { t.groupMatches.push(...scheduleGroup(g)); });
+    t.knockout = null;
+    return t;
+  }
+
+  function scheduleGroup(group) {
+    return PAIRINGS[group.teamIds.length].map(([i, j], order) => ({
+      id: uid('m'),
+      groupId: group.id,
+      order,
+      a: group.teamIds[i],
+      b: group.teamIds[j],
+      sets: [],
+      done: false,
+    }));
+  }
+
+  // Scambia due coppie di gironi diversi e rigenera le partite dei due gironi.
+  function swapTeams(t, teamA, teamB) {
+    const gA = t.groups.find((g) => g.teamIds.includes(teamA));
+    const gB = t.groups.find((g) => g.teamIds.includes(teamB));
+    if (!gA || !gB || gA === gB) return;
+    gA.teamIds[gA.teamIds.indexOf(teamA)] = teamB;
+    gB.teamIds[gB.teamIds.indexOf(teamB)] = teamA;
+    t.groupMatches = t.groupMatches.filter((m) => m.groupId !== gA.id && m.groupId !== gB.id);
+    t.groupMatches.push(...scheduleGroup(gA), ...scheduleGroup(gB));
+    t.knockout = null;
+  }
+
+  /* ------------------------------------------------------------- PUNTEGGI */
+
+  // Formati delle partite:
+  //  '1set'     un set tennistico
+  //  '3set'     al meglio dei 3 set
+  //  '3set-stb' 2 set + eventuale super tie-break a 10 al posto del terzo set
+  //  'libero'   game liberi (partite a tempo), pareggio possibile nei gironi
+  const FORMATS = {
+    '1set': { sets: 1, label: 'Un set' },
+    '3set': { sets: 3, label: 'Al meglio dei 3 set' },
+    '3set-stb': { sets: 3, label: '2 set + super tie-break', stb: true },
+    libero: { sets: 1, label: 'Game liberi (a tempo)' },
+  };
+
+  function scoreFormat(t) {
+    const f = t.settings && t.settings.scoreFormat;
+    if (f === 'set' || !FORMATS[f]) return '1set'; // 'set' = valore delle prime versioni
+    return f;
+  }
+
+  function setCount(t) {
+    return FORMATS[scoreFormat(t)].sets;
+  }
+
+  // Set tennistico: 6-0 … 6-4, 7-5, 7-6 (tie-break).
+  function isValidSet(a, b) {
+    const hi = Math.max(a, b), lo = Math.min(a, b);
+    return (hi === 6 && lo <= 4) || (hi === 7 && (lo === 5 || lo === 6));
+  }
+
+  // Super tie-break: si arriva a 10 con almeno 2 punti di vantaggio (10-8, 11-9, 12-10…).
+  function isValidSuperTB(a, b) {
+    const hi = Math.max(a, b), lo = Math.min(a, b);
+    return Number.isInteger(hi) && Number.isInteger(lo) && lo >= 0 && hi >= 10 && hi - lo >= 2 && (hi === 10 || hi - lo === 2);
+  }
+
+  const isNum = (v) => Number.isInteger(v);
+
+  // Valuta i set inseriti. Restituisce:
+  //  done   partita conclusa con un risultato valido
+  //  error  messaggio se il punteggio non è valido (null se va bene o se è ancora incompleto)
+  //  win    'a' | 'b' | null (null anche per il pareggio nei game liberi)
+  //  ga/gb  game totali (il super tie-break conta 1 game a chi lo vince)
+  //  sa/sb  set vinti
+  function evalSets(t, sets, knockout) {
+    const fmt = scoreFormat(t);
+    const conf = FORMATS[fmt];
+    const res = { done: false, error: null, win: null, ga: 0, gb: 0, sa: 0, sb: 0 };
+    const list = (sets || []).slice(0, conf.sets);
+
+    if (fmt === 'libero') {
+      const [a, b] = list[0] || [];
+      if (!isNum(a) || !isNum(b)) return res;
+      Object.assign(res, { ga: a, gb: b, sa: a > b ? 1 : 0, sb: b > a ? 1 : 0 });
+      if (a === b && knockout) { res.error = 'Pareggio: serve un vincitore'; return res; }
+      res.done = true;
+      res.win = a > b ? 'a' : b > a ? 'b' : null;
+      return res;
+    }
+
+    const need = conf.sets === 1 ? 1 : 2; // set da vincere
+    for (let i = 0; i < conf.sets; i++) {
+      const [a, b] = list[i] || [];
+      const filled = isNum(a) && isNum(b);
+      const any = isNum(a) || isNum(b);
+      const decided = res.sa === need || res.sb === need;
+      if (decided) {
+        if (any) res.error = `Il ${i + 1}° set non serve: la partita è già finita`;
+        break;
+      }
+      if (!filled) break; // set ancora da giocare o a metà
+      const stb = conf.stb && i === 2;
+      if (stb ? !isValidSuperTB(a, b) : !isValidSet(a, b)) {
+        res.error = stb
+          ? 'Super tie-break non valido: a 10 con 2 punti di vantaggio'
+          : `${conf.sets > 1 ? `${i + 1}° set` : 'Set'} non valido: 6-0…6-4, 7-5 o 7-6`;
+        break;
+      }
+      if (stb) { if (a > b) res.ga++; else res.gb++; } else { res.ga += a; res.gb += b; }
+      if (a > b) res.sa++; else res.sb++;
+    }
+    if (!res.error && (res.sa === need || res.sb === need)) {
+      res.done = true;
+      res.win = res.sa > res.sb ? 'a' : 'b';
+    }
+    return res;
+  }
+
+  // Registra un punteggio (lista di set [[a, b], ...]).
+  // Un risultato non valido resta visibile ma non conta finché non viene corretto.
+  function applyScore(t, m, sets, knockout) {
+    m.sets = (sets || []).map((s) => [isNum(s[0]) ? s[0] : null, isNum(s[1]) ? s[1] : null]);
+    const r = evalSets(t, m.sets, knockout);
+    m.done = r.done;
+    m.bad = !!r.error;
+    m.err = r.error;
+    m.win = r.win;
+    m.ga = r.ga; m.gb = r.gb;
+    m.sa = r.sa; m.sb = r.sb;
+  }
+
+  function scoreError(t, sets, knockout) {
+    return evalSets(t, sets, knockout).error;
+  }
+
+  function setGroupScore(t, matchId, sets) {
+    applyScore(t, t.groupMatches.find((m) => m.id === matchId), sets, false);
+  }
+
+  // Converte i tornei salvati con le prime versioni (punteggio ga/gb senza set).
+  function normalize(t) {
+    const fix = (m, ko) => {
+      if (!m.sets) m.sets = isNum(m.ga) || isNum(m.gb) ? [[m.ga, m.gb]] : [];
+      if (m.done === undefined) applyScore(t, m, m.sets, ko);
+    };
+    t.groupMatches.forEach((m) => fix(m, false));
+    if (t.knockout) t.knockout.rounds.forEach((r) => r.matches.forEach((m) => fix(m, true)));
+    if (t.settings.scoreFormat === 'set') t.settings.scoreFormat = '1set';
+    return t;
+  }
+
+  // Ricontrolla tutti i punteggi (per esempio dopo aver cambiato il formato delle partite).
+  function revalidateScores(t) {
+    t.groupMatches.forEach((m) => applyScore(t, m, m.sets, false));
+    const ko = t.knockout;
+    if (!ko) return;
+    ko.rounds.forEach((r) => r.matches.forEach((m) => applyScore(t, m, m.sets, true)));
+    const firstOpen = ko.rounds.findIndex((r) => !roundComplete(r));
+    if (firstOpen >= 0) ko.rounds.length = firstOpen + 1;
+    advanceKnockout(t);
+  }
+
+  function isPlayed(m) {
+    return !!m.done;
+  }
+
+  function hasScore(m) {
+    return (m.sets || []).some((s) => isNum(s[0]) || isNum(s[1]));
+  }
+
+  function groupHasResults(t, groupId) {
+    return t.groupMatches.some((m) => m.groupId === groupId && (isPlayed(m) || hasScore(m)));
+  }
+
+  /* ----------------------------------------------------------- CLASSIFICHE */
+
+  // Criteri: partite vinte, game vinti, game persi (meno è meglio), scontro diretto, monetina.
+  function groupStandings(t, group) {
+    const teamsById = indexTeams(t);
+    const matches = t.groupMatches.filter((m) => m.groupId === group.id);
+    const rows = group.teamIds.map((id) => ({
+      teamId: id, played: 0, won: 0, drawn: 0, lost: 0, gw: 0, gl: 0, coin: teamsById[id] ? teamsById[id].coin : 0, decidedBy: null,
+    }));
+    const byId = Object.fromEntries(rows.map((r) => [r.teamId, r]));
+    for (const m of matches) {
+      if (!isPlayed(m)) continue;
+      const ra = byId[m.a], rb = byId[m.b];
+      ra.played++; rb.played++;
+      ra.gw += m.ga; ra.gl += m.gb;
+      rb.gw += m.gb; rb.gl += m.ga;
+      if (m.win === 'a') { ra.won++; rb.lost++; }
+      else if (m.win === 'b') { rb.won++; ra.lost++; }
+      else { ra.drawn++; rb.drawn++; }
+    }
+    const key = (r) => [r.won, r.gw, -r.gl];
+    rows.sort((x, y) => cmpKeys(key(y), key(x)));
+
+    // Risolve i gruppi di coppie ancora pari con scontro diretto e poi monetina.
+    const out = [];
+    let i = 0;
+    while (i < rows.length) {
+      let j = i + 1;
+      while (j < rows.length && cmpKeys(key(rows[i]), key(rows[j])) === 0) j++;
+      const tied = rows.slice(i, j);
+      // Senza partite giocate resta l'ordine del girone.
+      if (tied.length > 1 && tied.some((r) => r.played)) resolveTie(tied, matches);
+      out.push(...tied);
+      i = j;
+    }
+    out.forEach((r, idx) => { r.pos = idx + 1; });
+    const complete = matches.every(isPlayed);
+    return { group, rows: out, complete };
+  }
+
+  function resolveTie(tied, matches) {
+    const ids = new Set(tied.map((r) => r.teamId));
+    const h2h = Object.fromEntries(tied.map((r) => [r.teamId, 0]));
+    for (const m of matches) {
+      if (!isPlayed(m) || !ids.has(m.a) || !ids.has(m.b)) continue;
+      if (m.win === 'a') h2h[m.a]++;
+      else if (m.win === 'b') h2h[m.b]++;
+    }
+    tied.sort((x, y) => (h2h[y.teamId] - h2h[x.teamId]) || (y.coin - x.coin));
+    // Segna quale criterio ha deciso la posizione rispetto alla coppia successiva.
+    for (let k = 0; k < tied.length - 1; k++) {
+      const by = h2h[tied[k].teamId] !== h2h[tied[k + 1].teamId] ? 'scontro diretto' : 'monetina';
+      if (!tied[k].decidedBy) tied[k].decidedBy = by;
+      if (!tied[k + 1].decidedBy) tied[k + 1].decidedBy = by;
+    }
+  }
+
+  function cmpKeys(a, b) {
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
+    }
+    return 0;
+  }
+
+  // Classifica generale: prima tutte le prime dei gironi, poi le seconde, ecc.
+  // Dentro ogni fascia: vinte, game vinti, game persi, monetina (lo scontro diretto non esiste tra gironi diversi).
+  function overallRanking(t) {
+    const standings = t.groups.map((g) => groupStandings(t, g));
+    const maxSize = Math.max(0, ...t.groups.map((g) => g.teamIds.length));
+    const avg = t.settings.crossGroup === 'media';
+    const val = (r, f) => (avg ? (r.played ? r[f] / r.played : 0) : r[f]);
+    const ranking = [];
+    for (let pos = 0; pos < maxSize; pos++) {
+      const band = standings
+        .filter((s) => s.rows[pos])
+        .map((s) => ({ ...s.rows[pos], groupName: s.group.name, groupPos: pos + 1 }));
+      band.sort((x, y) => cmpKeys([val(y, 'won'), val(y, 'gw'), -val(y, 'gl'), y.coin], [val(x, 'won'), val(x, 'gw'), -val(x, 'gl'), x.coin]));
+      ranking.push(...band);
+    }
+    ranking.forEach((r, i) => { r.rank = i + 1; });
+    const complete = standings.every((s) => s.complete);
+    return { ranking, complete };
+  }
+
+  /* ------------------------------------------------------------- TABELLONE */
+
+  // Piano del tabellone per n coppie: in quale turno entra ogni testa di serie.
+  // Sopra le 8 coppie le prime 4 entrano sempre ai quarti; le altre si qualificano
+  // nei turni precedenti e le meglio classificate saltano il primo turno se serve.
+  function bracketPlan(n) {
+    if (n < 2) return null;
+    const entry = [];
+    let total;
+    if (n <= 8) {
+      let P = 2;
+      while (P < n) P *= 2;
+      total = Math.log2(P);
+      const byes = P - n;
+      for (let i = 0; i < n; i++) entry.push(i < byes ? 1 : 0);
+    } else {
+      const M = n - 4;
+      let Q = 4;
+      while (Q < M) Q *= 2;
+      const qual = Math.log2(Q / 4);
+      const byes = Q - M;
+      total = qual + 3;
+      for (let i = 0; i < n; i++) {
+        if (i < 4) entry.push(qual);
+        else entry.push(i - 4 < byes ? 1 : 0);
+      }
+    }
+    return { total, entry };
+  }
+
+  function roundName(total, r) {
+    const slots = Math.pow(2, total - r);
+    return {
+      2: 'Finale', 4: 'Semifinali', 8: 'Quarti di finale', 16: 'Ottavi di finale',
+      32: 'Sedicesimi di finale', 64: 'Trentaduesimi di finale',
+    }[slots] || 'Turno ' + (r + 1);
+  }
+
+  function createKnockout(t) {
+    const { ranking } = overallRanking(t);
+    const limit = t.settings.maxBracket > 0 ? Math.min(t.settings.maxBracket, ranking.length) : ranking.length;
+    const seeds = ranking.slice(0, limit).map((r) => r.teamId);
+    const plan = bracketPlan(seeds.length);
+    if (!plan) throw new Error('Servono almeno 2 coppie per il tabellone.');
+    const entry = {};
+    seeds.forEach((id, i) => { entry[id] = plan.entry[i]; });
+    t.knockout = { seeds, entry, total: plan.total, rounds: [] };
+    advanceKnockout(t);
+    return t.knockout;
+  }
+
+  function matchWinner(m) {
+    if (!isPlayed(m)) return null;
+    return m.win === 'a' ? m.a : m.win === 'b' ? m.b : null;
+  }
+
+  function roundComplete(round) {
+    return round.matches.every((m) => matchWinner(m));
+  }
+
+  // Coppie che partecipano al turno r: chi entra in quel turno + vincenti del turno precedente.
+  function roundParticipants(ko, r) {
+    const ids = ko.seeds.filter((id) => ko.entry[id] === r);
+    if (r > 0) ids.push(...ko.rounds[r - 1].matches.map(matchWinner));
+    return ids;
+  }
+
+  // Più forte contro più debole: testa di serie migliore contro la peggiore rimasta.
+  function buildRound(t, r) {
+    const ko = t.knockout;
+    const seedIdx = (id) => ko.seeds.indexOf(id);
+    const ids = roundParticipants(ko, r).sort((a, b) => seedIdx(a) - seedIdx(b));
+    const matches = [];
+    for (let i = 0; i < ids.length / 2; i++) {
+      matches.push({
+        id: uid('k'), a: ids[i], b: ids[ids.length - 1 - i], sets: [], done: false,
+        court: (i % t.courts) + 1,
+      });
+    }
+    return { index: r, name: roundName(ko.total, r), matches };
+  }
+
+  // Genera i turni successivi quando quello corrente è completo.
+  function advanceKnockout(t) {
+    const ko = t.knockout;
+    if (!ko) return;
+    if (ko.rounds.length === 0) ko.rounds.push(buildRound(t, 0));
+    while (ko.rounds.length < ko.total && roundComplete(ko.rounds[ko.rounds.length - 1])) {
+      ko.rounds.push(buildRound(t, ko.rounds.length));
+    }
+  }
+
+  // Aggiorna il risultato di una partita del tabellone. Se cambia il vincitore,
+  // i turni successivi vengono ricalcolati. Restituisce true se sono stati cancellati turni.
+  function setKnockoutScore(t, matchId, sets) {
+    const ko = t.knockout;
+    const r = ko.rounds.findIndex((rd) => rd.matches.some((m) => m.id === matchId));
+    const m = ko.rounds[r].matches.find((x) => x.id === matchId);
+    const before = matchWinner(m);
+    applyScore(t, m, sets, true);
+    let truncated = false;
+    if (matchWinner(m) !== before && ko.rounds.length > r + 1) {
+      ko.rounds.length = r + 1;
+      truncated = true;
+    }
+    advanceKnockout(t);
+    return truncated;
+  }
+
+  function knockoutHasResultsAfter(t, matchId) {
+    const ko = t.knockout;
+    const r = ko.rounds.findIndex((rd) => rd.matches.some((m) => m.id === matchId));
+    return ko.rounds.slice(r + 1).some((rd) => rd.matches.some(isPlayed));
+  }
+
+  function champion(t) {
+    const ko = t.knockout;
+    if (!ko || ko.rounds.length !== ko.total) return null;
+    const final = ko.rounds[ko.total - 1];
+    return final.matches.length === 1 ? matchWinner(final.matches[0]) : null;
+  }
+
+  function indexTeams(t) {
+    return Object.fromEntries(t.teams.map((x) => [x.id, x]));
+  }
+
+  return {
+    LETTERS, newTournament, newTeam, teamName, clampCourts,
+    isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
+    groupSizes, describeSizes, seedCount, buildGroups, swapTeams, isPlayed, groupHasResults,
+    FORMATS, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
+    setGroupScore, revalidateScores, normalize, hasScore,
+    groupStandings, overallRanking,
+    bracketPlan, roundName, createKnockout, matchWinner, roundComplete, roundParticipants,
+    advanceKnockout, setKnockoutScore, knockoutHasResultsAfter, champion, indexTeams, shuffle,
+  };
+});
