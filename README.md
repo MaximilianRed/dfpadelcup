@@ -80,7 +80,9 @@ su un altro dispositivo, e **Importa** per ricaricarlo.
 ## Versioni
 
 La versione è scritta nella testata dell'app e in *Impostazioni → Informazioni*
-(si cambia in `js/core.js`, costante `VERSION`).
+(si cambia in `js/core.js`, costante `VERSION`). A ogni nuova versione aggiorna anche `?v=...` negli indirizzi
+dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
+(un test controlla che le due versioni coincidano).
 
 - **1.3.0** — La simulazione è il modo di creare il torneo: numeri, scelta dei gironi e tempi subito
   in *Nuovo torneo* e nella scheda Coppie; tolta la scheda Simula.

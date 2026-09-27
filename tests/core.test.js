@@ -430,4 +430,11 @@ test('scambio coppie tra gironi', () => {
   assert.strictEqual(t.groupMatches.length, 12);
 });
 
+test('index.html carica i file con la versione attuale (niente file vecchi in cache)', () => {
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
+  const refs = [...html.matchAll(/(?:src|href)="((?:js|css)\/[^"?]+)(?:\?v=([^"]*))?"/g)];
+  assert.ok(refs.length >= 5);
+  refs.forEach(([, file, v]) => assert.strictEqual(v, C.VERSION, `${file}: ?v=${v} invece di ?v=${C.VERSION}`));
+});
+
 console.log(`\n${passed} test superati`);
