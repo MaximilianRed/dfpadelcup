@@ -236,19 +236,11 @@
       <label class="rules-field" data-help-key="rules">Regolamento
         <textarea data-change="t-rules" rows="6" placeholder="Scrivi qui il regolamento del torneo: orari di ritrovo, quote, regole di gioco, premi...">${esc(t.rules || '')}</textarea>
       </label>
-      <div class="option-row" data-help-key="opt-format">
-        <span class="option-label">Formato delle partite</span>
-        <div class="segmented" role="group" aria-label="Formato delle partite">
-          ${Object.entries(C.FORMATS).map(([id, f]) => `<button class="${C.scoreFormat(t) === id ? 'active' : ''}" data-action="set-format" data-id="${id}" data-help-key="fmt-${id}">${f.label}</button>`).join('')}
-        </div>
-      </div>
-      <div class="option-row" data-help-key="opt-cross">
-        <span class="option-label">Confronto tra gironi da 3 e da 4</span>
-        <div class="segmented" role="group" aria-label="Confronto tra gironi">
-          <button class="${s.crossGroup !== 'media' ? 'active' : ''}" data-action="set-cross" data-id="assoluto" data-help-key="cross-assoluto">Valori assoluti</button>
-          <button class="${s.crossGroup === 'media' ? 'active' : ''}" data-action="set-cross" data-id="media" data-help-key="cross-media">Media per partita</button>
-        </div>
-      </div>
+    </section>
+
+    <section class="card">
+      <h2 data-help-key="sec-score-rules">Regole del punteggio e della classifica</h2>
+      ${rulesPanel()}
     </section>
 
     <section class="card">
@@ -1072,6 +1064,61 @@
       <ol class="sim-rounds">${rounds}</ol>`;
   }
 
+  /* ------------------------------------------------- regole del punteggio */
+
+  // Regole del torneo aperto: scritte per esteso (sempre aggiornate) e modificabili con i pulsanti.
+  function rulesPanel() {
+    const s = t.settings;
+    const fmt = C.scoreFormat(t);
+    const seven = C.sevenCountsAsSix(t);
+    const avg = s.crossGroup === 'media';
+    const n = t.teams.length;
+    const nb = s.maxBracket > 0 ? Math.min(s.maxBracket, n) : n;
+    const plan = C.bracketPlan(nb, s.bracketDirect, s.bracketEntry);
+    const ENTRY = { 4: 'in semifinale', 8: 'ai quarti', 16: 'agli ottavi', 32: 'ai sedicesimi', 64: 'ai trentaduesimi' };
+    const formatText = {
+      '1set': 'Ogni partita è <strong>un set</strong>: finisce 6-0, 6-1, 6-2, 6-3, 6-4, 7-5 oppure 7-6 (tie-break).',
+      '3set': 'Ogni partita è <strong>al meglio dei 3 set</strong>: vince chi vince 2 set; il 3° si gioca solo sull\'1-1. Ogni set finisce 6-0…6-4, 7-5 o 7-6.',
+      '3set-stb': 'Ogni partita è su <strong>2 set</strong>; sull\'1-1 si gioca un <strong>super tie-break a 10</strong> (con 2 punti di vantaggio), che in classifica vale 1 game.',
+      libero: 'Partite <strong>a tempo</strong>: si segnano i game fatti; nei gironi è possibile il pareggio, nel tabellone no.',
+    }[fmt];
+    const rules = [
+      formatText,
+      fmt === 'libero' ? ''
+        : seven ? 'In classifica il <strong>7 conta come 6</strong>: un <strong>7-6</strong> vale <strong>6-6</strong> nei game, ma la vittoria va a chi vince il tie-break; un <strong>7-5</strong> vale <strong>6-5</strong>.'
+          : 'In classifica i game contano <strong>come scritti</strong>: 7-6 vale 7-6, 7-5 vale 7-5.',
+      'Un punteggio non valido (per esempio 6-5) viene segnato in rosso e non conta finché non si corregge.',
+      'La partita la vince chi vince più set; i <strong>game vinti e persi</strong> in classifica sono la somma dei game di tutti i set.',
+      '<strong>Classifica del girone</strong>: partite vinte → game vinti → game persi (meno è meglio) → scontro diretto → sorteggio.',
+      `<strong>Classifica generale</strong>: prima tutte le prime dei gironi, poi le seconde, le terze e le quarte; dentro ogni fascia partite vinte → game vinti → game persi → sorteggio${avg ? ', in <strong>media per partita giocata</strong> (più equo tra gironi da 3 e da 4)' : ''}.`,
+      plan ? `<strong>Tabellone</strong>: ${nb === n ? 'tutte le coppie' : `le prime ${nb} coppie`}${plan.direct ? `; le prime ${plan.direct} entrano direttamente ${ENTRY[plan.entrySize] || ''}` : ''}. In ogni turno la meglio classificata affronta la peggiore rimasta; non sono ammessi pareggi.` : '',
+    ].filter(Boolean);
+
+    return `
+      <ol class="rules-list" data-help-key="rules-summary">${rules.map((r) => `<li>${r}</li>`).join('')}</ol>
+      <div class="option-row" data-help-key="opt-format">
+        <span class="option-label">Formato delle partite</span>
+        <div class="segmented" role="group" aria-label="Formato delle partite">
+          ${Object.entries(C.FORMATS).map(([id, f]) => `<button class="${fmt === id ? 'active' : ''}" data-action="set-format" data-id="${id}" data-help-key="fmt-${id}">${f.label}</button>`).join('')}
+        </div>
+      </div>
+      ${fmt === 'libero' ? '' : `<div class="option-row" data-help-key="opt-seven">
+        <span class="option-label">Game in classifica</span>
+        <div class="segmented" role="group" aria-label="Conteggio dei game">
+          <button class="${seven ? 'active' : ''}" data-action="set-seven" data-id="on" data-help-key="seven-on">7-6 vale 6-6, 7-5 vale 6-5</button>
+          <button class="${seven ? '' : 'active'}" data-action="set-seven" data-id="off" data-help-key="seven-off">Come scritti</button>
+        </div>
+      </div>`}
+      <div class="option-row" data-help-key="opt-cross">
+        <span class="option-label">Confronto tra gironi da 3 e da 4</span>
+        <div class="segmented" role="group" aria-label="Confronto tra gironi">
+          <button class="${avg ? '' : 'active'}" data-action="set-cross" data-id="assoluto" data-help-key="cross-assoluto">Valori assoluti</button>
+          <button class="${avg ? 'active' : ''}" data-action="set-cross" data-id="media" data-help-key="cross-media">Media per partita</button>
+        </div>
+      </div>
+      <p class="hint">Il tabellone (coppie ammesse, coppie dirette, turno di ingresso) si imposta nella parte <em>Numeri, gironi e tempi</em> della scheda Coppie.</p>`;
+  }
+
   /* ---------------------------------------------------------- impostazioni */
 
   function themePreview(p) {
@@ -1082,10 +1129,16 @@
   }
 
   function viewImpostazioni() {
+    const rulesCard = t ? `
+    <section class="card">
+      <h2 data-help-key="sec-score-rules">Regole del torneo «${esc(t.name)}»</h2>
+      ${rulesPanel()}
+    </section>` : '';
     const padel = THEMES.find((x) => x.id === 'padel').p;
     const notte = THEMES.find((x) => x.id === 'notte').p;
     const nTornei = S.list().length;
     return `
+    ${rulesCard}
     <section class="card">
       <h2 data-help-key="sec-theme">Tema</h2>
       <div class="theme-grid">${THEMES.map((th) => `
@@ -1360,6 +1413,13 @@
       toast(bad ? `Formato cambiato: ${bad} ${bad === 1 ? 'risultato da correggere' : 'risultati da correggere'}` : 'Formato: ' + C.FORMATS[el.dataset.id].label, !!bad);
     },
     'set-cross': (el) => { t.settings.crossGroup = el.dataset.id; persist(); render(); },
+    'set-seven': (el) => {
+      t.settings.sevenAsSix = el.dataset.id === 'on';
+      C.revalidateScores(t);
+      persist();
+      render();
+      toast(t.settings.sevenAsSix ? 'In classifica 7-6 vale 6-6 e 7-5 vale 6-5' : 'In classifica i game contano come scritti');
+    },
 
     // Scambio a due clic: prima una coppia, poi quella di un altro girone.
     'swap-pick': (el) => {

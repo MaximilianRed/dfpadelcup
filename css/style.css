@@ -809,6 +809,9 @@ textarea { width: 100%; resize: vertical; }
 }
 .rules-field textarea { color: var(--text); font-size: 1rem; text-transform: none; letter-spacing: 0; line-height: 1.5; min-height: 120px; }
 .rules-text { white-space: pre-wrap; line-height: 1.55; }
+.rules-list { margin: 0 0 6px; padding-left: 22px; display: grid; gap: 6px; line-height: 1.45; }
+.rules-list li::marker { color: var(--accent); font-weight: 700; }
+.rules-list strong { color: var(--text); }
 .btn.big { padding: 14px 28px; font-size: 1.1rem; border-radius: 14px; }
 @media (max-width: 560px) { .create-row .btn { width: 100%; } }
 .sim-rounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }

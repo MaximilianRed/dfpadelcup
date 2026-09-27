@@ -414,10 +414,33 @@ test('al meglio dei 3 set', () => {
   // Secondo set non valido.
   m = score(t, b, c, [6, 2], [6, 5]);
   assert.ok(m.bad && /2° set/.test(m.err));
-  // Game: a ha fatto 14 game, b 17.
+  // Game (il 7 conta come 6): a 0+6+6 = 12, b 6+5+6 = 17.
   const rows = C.groupStandings(t, t.groups[0]).rows;
   const ra = rows.find((r) => r.teamId === a), rb = rows.find((r) => r.teamId === b);
-  assert.deepStrictEqual([ra.won, ra.gw, ra.gl, rb.gw], [1, 14, 17, 17]);
+  assert.deepStrictEqual([ra.won, ra.gw, ra.gl, rb.gw], [1, 12, 17, 17]);
+});
+
+test('il 7 conta come 6: 7-6 vale 6-6, 7-5 vale 6-5, la vittoria resta', () => {
+  const t = makeTournament(4);
+  C.buildGroups(t);
+  const [a, b, c] = t.groups[0].teamIds;
+  const m1 = score(t, a, b, [7, 6]);
+  const m2 = score(t, a, c, [5, 7]);
+  const games = (m, x) => (m.a === x ? [m.ga, m.gb] : [m.gb, m.ga]);
+  assert.deepStrictEqual(games(m1, a), [6, 6]);
+  assert.strictEqual(C.matchWinner(m1), a); // vince chi ha vinto il tie-break
+  assert.deepStrictEqual(games(m2, c), [6, 5]);
+  assert.strictEqual(C.matchWinner(m2), c);
+  const ra = C.groupStandings(t, t.groups[0]).rows.find((r) => r.teamId === a);
+  assert.deepStrictEqual([ra.won, ra.lost, ra.gw, ra.gl], [1, 1, 11, 12]);
+  // Regola disattivata: i game contano come scritti.
+  t.settings.sevenAsSix = false;
+  C.revalidateScores(t);
+  assert.deepStrictEqual(games(m1, a), [7, 6]);
+  assert.deepStrictEqual(games(m2, c), [7, 5]);
+  // I tornei salvati prima della regola la usano (valore mancante = attiva).
+  delete t.settings.sevenAsSix;
+  assert.ok(C.sevenCountsAsSix(t));
 });
 
 test('2 set + super tie-break', () => {

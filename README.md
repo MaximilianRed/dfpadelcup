@@ -45,6 +45,8 @@ Passando il mouse su qualsiasi voce (pulsanti, campi, intestazioni delle tabelle
   - **Game liberi**: per le partite a tempo (pareggio possibile nei gironi, non nel tabellone).
 
   I punteggi non validi (es. 6-5) vengono segnati in rosso e non contano finché non si correggono.
+  **Conteggio dei game** (predefinito, modificabile): in classifica il 7 conta come 6, cioè 7-6 vale 6-6
+  (la vittoria va a chi vince il tie-break) e 7-5 vale 6-5.
   La partita la vince chi vince più set; i "game vinti" in classifica sono la somma dei game di tutti i set
   (il super tie-break conta come 1 game).
 
@@ -90,6 +92,8 @@ La versione è scritta nella testata dell'app e in *Impostazioni → Informazion
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.6.0** — Regole del punteggio scritte per esteso e modificabili (Impostazioni e scheda Coppie);
+  regola "il 7 conta come 6" (7-6 → 6-6, 7-5 → 6-5).
 - **1.5.0** — Tabellone completo con zoom, stampa orizzontale su 1 pagina o più fogli, condivisione come
   immagine; grafiche di racchette e palline; nel pianificatore le fasce dei gironi ("le prime dei gironi").
 - **1.4.0** — Tabellone configurabile (coppie ammesse, coppie dirette, turno di ingresso) con chi entra in

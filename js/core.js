@@ -10,7 +10,7 @@
   'use strict';
 
   // Versione del programma: aggiornala a ogni rilascio (vedi README, "Versioni").
-  const VERSION = '1.5.0';
+  const VERSION = '1.6.0';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -46,6 +46,7 @@
       settings: {
         drawMode: 'teste', // 'teste' (teste di serie + sorteggio) | 'ordine' (tutte in ordine di bravura) | 'casuale'
         scoreFormat: '1set', // '1set' | '3set' | '3set-stb' | 'libero' (vedi FORMATS)
+        sevenAsSix: true, // in classifica 7-6 conta 6-6 e 7-5 conta 6-5
         crossGroup: 'assoluto', // 'assoluto' | 'media' (per partita giocata)
         maxBracket: 0, // 0 = tutte le coppie entrano nel tabellone
         bracketDirect: null, // coppie che passano direttamente (null = automatico: 4 sopra le 8 coppie)
@@ -318,6 +319,11 @@
     return f;
   }
 
+  // Conteggio dei game in classifica: 7-6 vale 6-6 e 7-5 vale 6-5 (predefinito).
+  function sevenCountsAsSix(t) {
+    return !(t.settings && t.settings.sevenAsSix === false);
+  }
+
   function setCount(t) {
     return FORMATS[scoreFormat(t)].sets;
   }
@@ -376,7 +382,15 @@
           : `${conf.sets > 1 ? `${i + 1}° set` : 'Set'} non valido: 6-0…6-4, 7-5 o 7-6`;
         break;
       }
-      if (stb) { if (a > b) res.ga++; else res.gb++; } else { res.ga += a; res.gb += b; }
+      if (stb) {
+        if (a > b) res.ga++; else res.gb++;
+      } else {
+        // Regola del torneo: in classifica il 7 conta come 6 (7-6 → 6-6, 7-5 → 6-5);
+        // la vittoria del set resta comunque a chi l'ha vinto.
+        const cap = sevenCountsAsSix(t) ? (x) => Math.min(x, 6) : (x) => x;
+        res.ga += cap(a);
+        res.gb += cap(b);
+      }
       if (a > b) res.sa++; else res.sb++;
     }
     if (!res.error && (res.sa === need || res.sb === need)) {
@@ -420,6 +434,11 @@
     if (t.settings.groupCount === undefined) t.settings.groupCount = 0;
     if (!t.settings.matchMinutes) t.settings.matchMinutes = 30;
     if (!t.settings.startTime) t.settings.startTime = '09:00';
+    if (t.settings.sevenAsSix === undefined) {
+      // Regola introdotta nella 1.6: ricalcola i game delle partite già giocate.
+      t.settings.sevenAsSix = true;
+      revalidateScores(t);
+    }
     return t;
   }
 
@@ -738,7 +757,7 @@
     VERSION, LETTERS, newTournament, newTeam, teamName, clampCourts,
     isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
     groupSizes, groupRange, tournamentSizes, describeSizes, describeGroups, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
-    FORMATS, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
+    FORMATS, sevenCountsAsSix, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
     setGroupScore, revalidateScores, normalize, hasScore,
     groupStandings, overallRanking,
     bracketConfig, bracketEntryOptions, bracketPlan, roundName, createKnockout, matchWinner, roundComplete, roundParticipants,
