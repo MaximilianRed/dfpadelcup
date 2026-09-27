@@ -15,6 +15,7 @@
   let TM = {}; // coppie per id
   let tab = 'tornei';
   const ui = { court: 0, editGroups: false, focus: null };
+  const FREE_TABS = ['tornei', 'simula', 'impostazioni']; // usabili anche senza un torneo aperto
 
   /* ------------------------------------------------------------ preferenze */
 
@@ -74,6 +75,8 @@
     dice: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1.2"/><circle cx="15" cy="9" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="9" cy="15" r="1.2"/><circle cx="15" cy="15" r="1.2"/></svg>',
     star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/></svg>',
     rank: '<svg viewBox="0 0 24 24"><path d="M4 6h2M4 12h2M4 18h2M9 6h11M9 12h8M9 18h5"/></svg>',
+    sim: '<svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg>',
+    clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   };
   const TROPHY = '<svg class="trophy" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h3v2a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 13.9V17h3v2H8v-2h3v-3.1A5 5 0 0 1 8.3 11H8a4 4 0 0 1-4-4V5h3zm-1 4v0a2 2 0 0 0 1 1.7V7zm12 0v1.7A2 2 0 0 0 19 7zM6 20h12v2H6z"/></svg>';
   const COURT = `<svg class="court" viewBox="0 0 200 110" aria-hidden="true">
@@ -154,15 +157,15 @@
 
     tabsEl.querySelectorAll('button').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === tab);
-      b.disabled = !t && b.dataset.tab !== 'tornei' && b.dataset.tab !== 'impostazioni';
+      b.disabled = !t && !FREE_TABS.includes(b.dataset.tab);
     });
     currentNameEl.textContent = t ? t.name + (t.date ? ' · ' + formatDate(t.date) : '') : '';
 
     const views = {
-      tornei: viewTornei, coppie: viewCoppie, calendario: viewCalendario, gironi: viewGironi, classifica: viewClassifica,
-      tabellone: viewTabellone, impostazioni: viewImpostazioni,
+      tornei: viewTornei, simula: viewSimula, coppie: viewCoppie, calendario: viewCalendario, gironi: viewGironi,
+      classifica: viewClassifica, tabellone: viewTabellone, impostazioni: viewImpostazioni,
     };
-    const free = tab === 'tornei' || tab === 'impostazioni';
+    const free = FREE_TABS.includes(tab);
     view.innerHTML = (t || free) && views[tab] ? views[tab]() : viewTornei();
 
     if (focusKey) {
@@ -216,11 +219,11 @@
 
   function viewCoppie() {
     const n = t.teams.length;
-    const desc = C.describeSizes(n, t.courts);
-    const sizes = C.groupSizes(n, t.courts);
+    const desc = C.describeSizes(n, t.courts, t.settings.groupCount);
+    const sizes = C.groupSizes(n, t.courts, t.settings.groupCount);
     const s = t.settings;
     const turns = sizes ? Math.ceil(sizes.length / t.courts) : 0;
-    const seeds = C.seedCount(n, t.courts);
+    const seeds = C.seedCount(n, t.courts, t.settings.groupCount);
     const filled = t.teams.filter(C.isTeamComplete).length;
     const ready = sizes && filled === n;
     const defaults = t.teams.filter((x) => C.isDefaultName(x.p1) || C.isDefaultName(x.p2)).length;
@@ -278,7 +281,9 @@
       <h2 data-help-key="sec-draw">${t.groups.length ? 'Rifai i gironi' : 'Crea i gironi'}</h2>
       <p data-help-key="groups-summary" style="margin-top:0">${desc
         ? `<strong>${n} coppie</strong> → ${desc}${turns > 1 ? ` · ${turns} turni su ${t.courts} ${t.courts === 1 ? 'campo' : 'campi'}` : ''}`
-        : `<span class="warn">Con ${n} coppie non si possono fare gironi da 3 o 4.</span>`}</p>
+        : `<span class="warn">Con ${n} coppie non si possono fare gironi da 3 o 4.</span>`}
+        ${s.groupCount ? ' <span class="badge" data-help-key="manual-groups">scelti nella simulazione</span>' : ''}
+        <button class="btn small ghost" data-action="goto" data-tab="simula" style="margin-left:6px">${ICON.sim} Prova altre combinazioni</button></p>
       ${sizes && !ready ? `<p class="notice">Mancano <strong>${n - filled}</strong> ${n - filled === 1 ? 'coppia da completare' : 'coppie da completare'}: servono i nomi di entrambi i giocatori.</p>` : ''}
       ${ready ? `<p class="hint" id="defaultsHint">${defaults ? `${defaults === 1 ? '1 coppia ha' : `${defaults} coppie hanno`} ancora i nomi di default: puoi creare i gironi lo stesso e correggerli dopo.` : ''}</p>` : ''}
       <div class="draw-choice">
@@ -570,7 +575,7 @@
     return (m.sets || []).filter((s) => s[0] != null && s[1] != null).map((s) => `${s[0]}-${s[1]}`).join('  ');
   }
 
-  function calRow(m, n, label, current) {
+  function calRow(m, n, label, current, time) {
     const w = C.matchWinner(m);
     const status = m.done
       ? `<span class="cal-score">${setsText(m)}</span>`
@@ -578,7 +583,7 @@
         : current ? '<span class="cal-now">In campo ora</span>' : '<span class="cal-todo">da giocare</span>';
     return `<li class="${m.done ? 'done' : ''} ${current ? 'now' : ''}">
       <span class="cal-n">${n}</span>
-      <span class="cal-tag">${label}</span>
+      <span class="cal-when"><span class="cal-time" data-help-key="cal-time">${time}</span><span class="cal-tag">${label}</span></span>
       <span class="cal-teams"><span class="${w === m.a ? 'win' : ''}">${name(m.a)}</span>
         <span class="cal-vs">–</span> <span class="${w === m.b ? 'win' : ''}">${name(m.b)}</span></span>
       ${status}
@@ -588,6 +593,10 @@
   // Calendario creato con il sorteggio: per ogni campo le partite nell'ordine in cui si giocano.
   function viewCalendario() {
     if (!t.groups.length) return empty('Il calendario si crea con il sorteggio dei gironi.', 'coppie', 'Vai alle coppie');
+    const start = toMin(t.settings.startTime);
+    const min = t.settings.matchMinutes || 30;
+    const at = (slot) => fmtTime(start + slot * min);
+    let longest = 0;
     const cols = [...groupsByCourt()].map(([court, list]) => {
       const matches = list.flatMap((g) => t.groupMatches
         .filter((m) => m.groupId === g.id)
@@ -595,31 +604,177 @@
         .map((m) => ({ m, g })));
       const nextIdx = matches.findIndex(({ m }) => !m.done);
       const left = matches.filter(({ m }) => !m.done).length;
+      longest = Math.max(longest, matches.length);
       return `<section class="card cal-court">
         <h2>Campo ${court}</h2>
         <p class="hint" style="margin-top:0">${list.map((g) => `Girone ${esc(g.name)}`).join(', poi ')} ·
           ${left ? `${left} ${left === 1 ? 'partita da giocare' : 'partite da giocare'}` : 'tutte giocate ✓'}</p>
-        <ol class="cal">${matches.map(({ m, g }, i) => calRow(m, i + 1, esc(g.name), i === nextIdx)).join('')}</ol>
+        <ol class="cal">${matches.map(({ m, g }, i) => calRow(m, i + 1, 'Girone ' + esc(g.name), i === nextIdx, at(i))).join('')}</ol>
       </section>`;
     }).join('');
 
     let ko = '';
     if (t.knockout) {
+      // Orari del tabellone: dopo la fine dei gironi, un turno alla volta sui campi disponibili.
+      let slot = longest;
       ko = t.knockout.rounds.map((r) => {
         const byCourt = r.matches.slice().sort((a, b) => a.court - b.court);
+        const first = slot;
+        slot += Math.ceil(r.matches.length / t.courts);
         return `<section class="card">
           <h2>${r.name}</h2>
-          <ol class="cal">${byCourt.map((m, i) => calRow(m, i + 1, `Campo ${m.court}`, false)).join('')}</ol>
+          <ol class="cal">${byCourt.map((m, i) => calRow(m, i + 1, `Campo ${m.court}`, false, at(first + Math.floor(i / t.courts)))).join('')}</ol>
         </section>`;
       }).join('');
     }
 
     return `
     <div class="toolbar"><span class="badge">${t.groups.length} ${t.groups.length === 1 ? 'girone' : 'gironi'} su ${groupsByCourt().size} ${groupsByCourt().size === 1 ? 'campo' : 'campi'}</span>
-      <span class="spacer"></span><button class="btn small" data-action="print">${ICON.print} Stampa</button></div>
-    <p class="hint" style="margin:0 0 16px">Le partite di ogni campo si giocano nell'ordine indicato. I risultati si inseriscono nella scheda <strong>Gironi</strong>${t.knockout ? ' e nella scheda <strong>Tabellone</strong>' : ''}.</p>
+      <span class="badge" data-help-key="cal-times">${ICON.clock} inizio ${esc(t.settings.startTime)} · ${min} min a partita</span>
+      <span class="spacer"></span>
+      <button class="btn small" data-action="goto" data-tab="simula">${ICON.sim} Cambia orari</button>
+      <button class="btn small" data-action="print">${ICON.print} Stampa</button></div>
+    <p class="hint" style="margin:0 0 16px">Le partite di ogni campo si giocano nell'ordine indicato; gli orari sono una stima. I risultati si inseriscono nella scheda <strong>Gironi</strong>${t.knockout ? ' e nella scheda <strong>Tabellone</strong>' : ''}.</p>
     <div class="cal-grid">${cols}</div>
     ${ko}`;
+  }
+
+  /* ------------------------------------------------------------ simulazione */
+
+  const toMin = (hhmm) => {
+    const [h, m] = String(hhmm || '09:00').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  const fmtTime = (min) => {
+    const x = ((Math.round(min) % 1440) + 1440) % 1440;
+    return String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0');
+  };
+  const fmtDur = (min) => (min < 60 ? `${min} min`
+    : `${Math.floor(min / 60)} h${min % 60 ? ' ' + String(min % 60).padStart(2, '0') : ''}`);
+
+  // Valori della simulazione: partono dal torneo aperto, se c'è.
+  function simState() {
+    if (!ui.sim || ui.sim.forId !== (t ? t.id : null)) {
+      ui.sim = t
+        ? { n: t.teams.length || 16, courts: t.courts, groups: t.settings.groupCount || 0, minutes: t.settings.matchMinutes || 30, start: t.settings.startTime || '09:00', forId: t.id }
+        : { n: 16, courts: 4, groups: 0, minutes: 30, start: '09:00', forId: null };
+    }
+    return ui.sim;
+  }
+
+  // Gironi scelti nella simulazione (0 = quello consigliato).
+  function simChoice(sim) {
+    const autoG = (C.groupSizes(sim.n, sim.courts) || []).length;
+    const range = C.groupRange(sim.n);
+    const chosen = sim.groups && range.includes(sim.groups) ? sim.groups : autoG;
+    return { autoG, chosen };
+  }
+
+  function stepper(field, label, value, help) {
+    return `<div class="stepper" data-help-key="${help}">
+      <span class="stepper-label">${label}</span>
+      <div class="stepper-ctl">
+        <button class="step-btn" data-action="sim-step" data-field="${field}" data-d="-1" aria-label="${label}: meno">−</button>
+        <span class="stepper-val">${value}</span>
+        <button class="step-btn" data-action="sim-step" data-field="${field}" data-d="1" aria-label="${label}: più">+</button>
+      </div>
+    </div>`;
+  }
+
+  function viewSimula() {
+    const sim = simState();
+    const start = toMin(sim.start);
+    const opts = C.simulateOptions({ n: sim.n, courts: sim.courts, minutes: sim.minutes });
+    const { autoG, chosen } = simChoice(sim);
+    const s = opts.find((o) => o.groups === chosen);
+
+    const controls = `
+    <section class="card">
+      <h2 data-help-key="sec-sim">Simula il torneo</h2>
+      <p class="hint" style="margin-top:0">Cambia i numeri con − e +: tutto si ricalcola subito. Quando ti va bene, applicalo al torneo.</p>
+      <div class="steppers">
+        ${stepper('n', 'Coppie', sim.n, 'sim-n')}
+        ${stepper('courts', 'Campi', sim.courts, 'sim-courts')}
+        ${stepper('minutes', 'Minuti a partita', sim.minutes, 'sim-minutes')}
+        ${stepper('start', 'Inizio', sim.start, 'sim-start')}
+      </div>
+    </section>`;
+
+    if (!s) {
+      return controls + `<section class="card"><p class="warn" style="margin:0">Con ${sim.n} coppie non si possono fare gironi da 3 o 4: cambia il numero di coppie.</p></section>`;
+    }
+
+    const endGroups = start + s.groupMinutes;
+    const endAll = start + s.totalMinutes;
+
+    // Confronto tra le divisioni possibili.
+    const options = `
+    <section class="card">
+      <h2 data-help-key="sec-sim-options">Come dividere le ${sim.n} coppie</h2>
+      <div class="sim-options">${opts.map((o) => `
+        <button class="sim-option ${o.groups === chosen ? 'active' : ''}" data-action="sim-groups" data-g="${o.groups}">
+          <span class="so-title">${C.describeSizes(sim.n, sim.courts, o.groups)}${o.groups === autoG ? ' <span class="so-best">consigliato</span>' : ''}</span>
+          <span class="so-line">${o.perCouple.min === o.perCouple.max ? o.perCouple.min : `${o.perCouple.min}–${o.perCouple.max}`} partite a coppia nei gironi</span>
+          <span class="so-line">Gironi finiti alle <strong>${fmtTime(start + o.groupMinutes)}</strong></span>
+          <span class="so-line">Torneo finito alle <strong>${fmtTime(start + o.totalMinutes)}</strong></span>
+          ${o.idleCourts ? `<span class="so-line warn">${o.idleCourts} ${o.idleCourts === 1 ? 'campo resta libero' : 'campi restano liberi'}</span>` : ''}
+          ${o.groups > o.courts ? '<span class="so-line warn">alcuni gironi giocano dopo</span>' : ''}
+        </button>`).join('')}
+      </div>
+    </section>`;
+
+    // Numeri principali.
+    const kpis = `
+    <div class="kpis">
+      <div class="kpi" data-help-key="kpi-matches"><span class="kpi-val">${s.groupMatches + s.rounds.reduce((a, r) => a + r.matches, 0)}</span><span class="kpi-lbl">partite in tutto</span></div>
+      <div class="kpi" data-help-key="kpi-groups-end"><span class="kpi-val">${fmtTime(endGroups)}</span><span class="kpi-lbl">fine gironi (${fmtDur(s.groupMinutes)})</span></div>
+      <div class="kpi" data-help-key="kpi-end"><span class="kpi-val">${fmtTime(endAll)}</span><span class="kpi-lbl">fine torneo (${fmtDur(s.totalMinutes)})</span></div>
+      <div class="kpi" data-help-key="kpi-wait"><span class="kpi-val">${fmtDur(s.maxWaitSlots * sim.minutes)}</span><span class="kpi-lbl">attesa massima prima di giocare</span></div>
+    </div>`;
+
+    // Una barra per campo: i gironi in ordine, lunghi quanto le loro partite.
+    const lanes = s.lanes.map((l) => {
+      const free = s.groupSlots - l.load;
+      return `<div class="lane">
+        <span class="lane-name">Campo ${l.court}</span>
+        <div class="lane-bar">
+          ${l.blocks.map((b) => `<span class="lane-block" style="flex-grow:${b.matches}" data-help="${esc(`Girone ${b.name}: ${b.size} coppie, ${b.matches} partite, dalle ${fmtTime(start + b.start * sim.minutes)} alle ${fmtTime(start + (b.start + b.matches) * sim.minutes)}`)}">
+            <strong>${b.name}</strong><small>${fmtTime(start + b.start * sim.minutes)}–${fmtTime(start + (b.start + b.matches) * sim.minutes)}</small></span>`).join('')}
+          ${free > 0 ? `<span class="lane-free" style="flex-grow:${free}" data-help="Campo libero dalle ${fmtTime(start + l.load * sim.minutes)}">libero</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    let t0 = endGroups;
+    const rounds = s.rounds.map((r) => {
+      const row = `<li><span class="cal-tag">${fmtTime(t0)}</span><strong>${r.name}</strong>
+        <span class="muted">${r.matches} ${r.matches === 1 ? 'partita' : 'partite'}${r.slots > 1 ? ` · ${r.slots} turni sui campi` : ''}</span></li>`;
+      t0 += r.slots * sim.minutes;
+      return row;
+    }).join('');
+
+    const notes = [];
+    if (s.idleCourts) notes.push(`${s.idleCourts} ${s.idleCourts === 1 ? 'campo resta libero' : 'campi restano liberi'} durante i gironi.`);
+    if (s.groups > sim.courts) notes.push(`Ci sono più gironi che campi: alcune coppie aspettano fino a ${fmtDur(s.maxWaitSlots * sim.minutes)} prima di giocare.`);
+    if (s.perCouple.min !== s.perCouple.max) notes.push('Nei gironi da 3 si giocano 2 partite, in quelli da 4 se ne giocano 3.');
+
+    const applyLabel = t ? `Applica al torneo «${esc(t.name)}»` : '';
+    return controls + options + `
+    <section class="card">
+      <h2 data-help-key="sec-sim-result">Come andrebbe</h2>
+      ${kpis}
+      <div class="lanes" data-help-key="sim-lanes">${lanes}</div>
+      ${notes.length ? `<ul class="sim-notes">${notes.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
+      <h3 class="sim-sub">Tabellone (tutte le ${sim.n} coppie)</h3>
+      <ol class="sim-rounds">${rounds}</ol>
+    </section>
+    <section class="card summary">
+      <p>Ti va bene così?</p>
+      <span class="row-actions">
+        ${t ? `<button class="btn ball" data-action="sim-apply">${ICON.arrow} ${applyLabel}</button>` : ''}
+        <button class="btn ${t ? 'ghost' : 'ball'}" data-action="sim-new">${ICON.plus} Nuovo torneo con questi numeri</button>
+      </span>
+    </section>`;
   }
 
   /* ---------------------------------------------------------- impostazioni */
@@ -666,7 +821,7 @@
 
     <section class="card">
       <h2 data-help-key="sec-info">Informazioni</h2>
-      <p class="muted" style="margin:0">DF Padel Cup · ${nTornei} ${nTornei === 1 ? 'torneo salvato' : 'tornei salvati'} in questo browser.<br>
+      <p class="muted" style="margin:0"><strong>DF Padel Cup versione ${C.VERSION}</strong><br>${nTornei} ${nTornei === 1 ? 'torneo salvato' : 'tornei salvati'} in questo browser.<br>
       Tema, testo e aiuto valgono solo per questo dispositivo e non modificano i tornei.</p>
     </section>`;
   }
@@ -828,6 +983,63 @@
     'toggle-edit': () => { ui.editGroups = !ui.editGroups; ui.swapPick = null; render(); },
     'court-filter': (el) => { ui.court = parseInt(el.dataset.court, 10) || 0; render(); },
 
+    // Simulazione: − e + ricalcolano tutto subito.
+    'sim-step': (el) => {
+      const sim = simState();
+      const d = parseInt(el.dataset.d, 10);
+      const f = el.dataset.field;
+      if (f === 'n') {
+        let n = Math.min(200, Math.max(3, sim.n + d));
+        if (n === 5) n += d; // con 5 coppie non si fanno gironi: salta
+        sim.n = Math.max(3, n);
+        sim.groups = 0;
+      } else if (f === 'courts') {
+        sim.courts = Math.min(20, Math.max(1, sim.courts + d));
+        sim.groups = 0;
+      } else if (f === 'minutes') {
+        sim.minutes = Math.min(180, Math.max(10, sim.minutes + d * 5));
+      } else if (f === 'start') {
+        sim.start = fmtTime(Math.min(23 * 60, Math.max(6 * 60, toMin(sim.start) + d * 15)));
+      }
+      render();
+    },
+    'sim-groups': (el) => { simState().groups = parseInt(el.dataset.g, 10); render(); },
+
+    'sim-apply': () => {
+      const sim = simState();
+      const { autoG, chosen } = simChoice(sim);
+      const groupCount = chosen === autoG ? 0 : chosen;
+      const cur = C.tournamentSizes(t);
+      const structural = sim.n !== t.teams.length || sim.courts !== t.courts || !cur || cur.length !== chosen;
+      if (structural && t.groups.length) {
+        const hasResults = t.groupMatches.some((m) => C.isPlayed(m) || C.hasScore(m)) || t.knockout;
+        if (!confirm(`I gironi già sorteggiati verranno cancellati${hasResults ? ', insieme ai risultati' : ''}: andranno rifatti con i nuovi numeri. Continuare?`)) return;
+      }
+      const lost = C.filledLostOnResize(t, sim.n);
+      if (lost && !confirm(`Per scendere a ${sim.n} coppie verranno eliminate le ultime ${lost} coppie con i nomi inseriti. Continuare?`)) return;
+      if (structural) { t.groups = []; t.groupMatches = []; t.knockout = null; }
+      C.resizeTeams(t, sim.n);
+      t.courts = sim.courts;
+      t.settings.groupCount = groupCount;
+      t.settings.matchMinutes = sim.minutes;
+      t.settings.startTime = sim.start;
+      persist();
+      go(structural || !t.groups.length ? 'coppie' : 'calendario');
+      toast(structural ? 'Numeri applicati: ora crea i gironi' : 'Orari aggiornati');
+    },
+    'sim-new': () => {
+      const sim = simState();
+      const { autoG, chosen } = simChoice(sim);
+      t = C.newTournament({ name: 'Nuovo torneo', date: new Date().toLocaleDateString('sv'), courts: sim.courts, count: sim.n });
+      t.settings.groupCount = chosen === autoG ? 0 : chosen;
+      t.settings.matchMinutes = sim.minutes;
+      t.settings.startTime = sim.start;
+      S.save(t);
+      S.setCurrentId(t.id);
+      go('coppie');
+      toast('Torneo creato: dagli un nome e inserisci le coppie');
+    },
+
     'set-format': (el) => {
       if (C.scoreFormat(t) === el.dataset.id) return;
       t.settings.scoreFormat = el.dataset.id;
@@ -907,9 +1119,9 @@
       t.courts = n;
       if (t.groups.length) {
         reassignCourts();
-        const ideal = C.groupSizes(t.teams.length, n);
+        const ideal = C.groupSizes(t.teams.length, n, t.settings.groupCount);
         toast(ideal && ideal.length !== t.groups.length
-          ? `Con ${n} ${n === 1 ? 'campo' : 'campi'} conviene fare ${C.describeSizes(t.teams.length, n)}: rifai il sorteggio`
+          ? `Con ${n} ${n === 1 ? 'campo' : 'campi'} conviene fare ${C.describeSizes(t.teams.length, n, t.settings.groupCount)}: rifai il sorteggio`
           : 'Campi dei gironi riassegnati', !!(ideal && ideal.length !== t.groups.length));
       }
       commit();
@@ -1046,6 +1258,7 @@
   /* ---------------------------------------------------------------- avvio */
 
   applyPrefs();
+  document.getElementById('appVersion').textContent = 'v' + C.VERSION;
   // Con il tema automatico aggiorna il colore della barra del browser se cambia la modalità del dispositivo.
   try {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyPrefs);

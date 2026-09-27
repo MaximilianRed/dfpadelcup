@@ -206,6 +206,19 @@ svg { flex-shrink: 0; }
 :root[data-theme="classico"] .logo-ball { fill: #ffffff; }
 .brand-name { font-size: 1.75rem; font-weight: 800; line-height: 1; text-transform: uppercase; }
 .brand-sub { font-size: 0.93rem; opacity: 0.85; margin-top: 3px; }
+.version {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  font-family: "Barlow", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
 .brand-sub:empty { display: none; }
 
 /* =====================================================================
@@ -644,6 +657,140 @@ textarea { width: 100%; resize: vertical; }
 .swap-btn.picked { background: var(--ball); color: var(--ball-ink); border-style: solid; border-color: transparent; font-weight: 700; }
 
 /* =====================================================================
+   SIMULAZIONE
+   ===================================================================== */
+
+.steppers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--card-alt);
+  border: 1px solid var(--border);
+}
+.stepper-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.stepper-ctl { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stepper-val {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.step-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.step-btn:active { transform: translateY(1px); }
+
+.sim-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+.sim-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-alt);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sim-option:hover { border-color: var(--accent); }
+.sim-option.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.so-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+.so-best {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--ball);
+  color: var(--ball-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.so-line { font-size: 0.88rem; color: var(--muted); }
+.so-line strong { color: var(--text); }
+.so-line.warn { color: var(--warn); }
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(120deg, var(--hero-from), var(--hero-to));
+  color: var(--hero-ink);
+}
+:root[data-theme="classico"] .kpi { background: var(--accent-soft); color: var(--text); }
+.kpi-val { font-family: "Barlow Condensed", sans-serif; font-size: 1.9rem; font-weight: 800; line-height: 1; color: var(--ball); }
+:root[data-theme="classico"] .kpi-val { color: var(--accent); }
+.kpi-lbl { font-size: 0.82rem; opacity: 0.9; }
+
+.lanes { display: grid; gap: 8px; }
+.lane { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: center; }
+.lane-name { font-weight: 700; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.lane-bar { display: flex; gap: 4px; min-height: 44px; }
+.lane-block, .lane-free {
+  flex-basis: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.lane-block { background: var(--accent); color: var(--accent-ink); }
+.lane-block:nth-child(even) { background: color-mix(in srgb, var(--accent) 70%, var(--card)); }
+.lane-block strong { font-family: "Barlow Condensed", sans-serif; font-size: 1.05rem; line-height: 1.1; }
+.lane-block small { font-size: 0.72rem; opacity: 0.9; overflow: hidden; text-overflow: ellipsis; }
+.lane-free {
+  background: repeating-linear-gradient(45deg, var(--card-alt), var(--card-alt) 6px, var(--border) 6px, var(--border) 7px);
+  color: var(--muted);
+  font-size: 0.78rem;
+  align-items: center;
+}
+.sim-notes { margin: 14px 0 0; padding-left: 20px; color: var(--warn); font-size: 0.9rem; }
+.sim-sub { margin: 18px 0 8px !important; font-size: 1.05rem !important; text-transform: uppercase; color: var(--muted); }
+.sim-rounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.sim-rounds li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* =====================================================================
    CALENDARIO
    ===================================================================== */
 
@@ -690,6 +837,8 @@ textarea { width: 100%; resize: vertical; }
   white-space: nowrap;
 }
 :root[data-theme="classico"] .cal-tag { background: var(--accent); }
+.cal-when { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.cal-time { font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 1.05rem; line-height: 1; }
 .cal-teams { min-width: 0; line-height: 1.25; }
 .cal-teams .win { font-weight: 700; color: var(--win); }
 .cal-vs { color: var(--muted); margin: 0 2px; }
@@ -1194,6 +1343,9 @@ tr.band td {
   .tabs button { padding: 8px 11px; }
   .card { padding: 14px; }
   .group-body { padding: 4px 10px 12px; }
+  .stepper { padding: 8px 10px; }
+  .step-btn { width: 40px; height: 40px; }
+  .stepper-val { font-size: 1.6rem; }
   .sb { padding: 8px; }
   .sb-grid { grid-auto-columns: 40px; column-gap: 5px; }
   .sb input { width: 40px; }

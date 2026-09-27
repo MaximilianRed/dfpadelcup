@@ -4,6 +4,9 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
 
 ## Come si usa
 
+0. **Simula** (facoltativo): con − e + cambi coppie, campi, minuti a partita e ora di inizio e vedi subito
+   le divisioni possibili in gironi a confronto, l'occupazione dei campi, le attese e l'ora di fine.
+   Poi *Applica al torneo* o *Nuovo torneo con questi numeri*.
 1. **Tornei**: crea un torneo (nome, data, campi da 1 a 20, numero di coppie). L'app prepara le righe con nomi di default
    (Giocatore 1A / Giocatore 1B, ...), così i gironi si possono creare subito e i nomi correggere dopo.
 2. **Coppie**: scrivi i nomi (Invio passa al campo successivo) oppure incolla un elenco (`Rossi / Bianchi`, una per riga).
@@ -16,7 +19,7 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
      si alternano in senso inverso, così i gironi hanno la stessa forza (16 coppie: A 1-8-9-16, B 4-5-12-13,
      C 3-6-11-14, D 2-7-10-15).
 3. **Calendario**: si crea da solo con il sorteggio. Per ogni campo mostra le partite nell'ordine in cui
-   si giocano; la prossima da giocare è evidenziata.
+   si giocano, con l'orario previsto; la prossima da giocare è evidenziata.
 4. **Gironi**: inserisci i game di ogni partita (Invio passa al campo successivo). Si può filtrare per campo.
    Con *Modifica composizione* si scambiano due coppie cliccandole una dopo l'altra.
 5. **Classifica**: quando i gironi sono conclusi, premi *Genera il tabellone*.
@@ -40,7 +43,9 @@ Passando il mouse su qualsiasi voce (pulsanti, campi, intestazioni delle tabelle
   (il super tie-break conta come 1 game).
 
 - **Gironi**: da 3 o da 4 coppie, un girone per campo quando si può: con pochi campi gironi da 4,
-  con tanti campi gironi da 3 (finiscono prima). Se i gironi sono più dei campi, alcuni giocano dopo.
+  con tanti campi gironi da 3, ma solo se così il torneo finisce prima (a parità di orario si preferiscono
+  gironi da 4, con più partite per tutti). Se i gironi sono più dei campi, alcuni giocano dopo.
+  Nella simulazione si può scegliere a mano un'altra divisione.
   Non si possono fare con 1, 2 o 5 coppie.
 - **Classifica del girone**: partite vinte → game vinti → game persi (meno è meglio) → scontro diretto → monetina.
 - **Classifica generale**: prima tutte le prime dei gironi, poi le seconde, ecc.; dentro ogni fascia
@@ -71,3 +76,14 @@ su un altro dispositivo, e **Importa** per ricaricarlo.
 - Test: `node tests/core.test.js`
 - In locale: `python -m http.server 8765` e apri http://localhost:8765
   (funziona anche aprendo direttamente `index.html`)
+
+## Versioni
+
+La versione è scritta nella testata dell'app e in *Impostazioni → Informazioni*
+(si cambia in `js/core.js`, costante `VERSION`).
+
+- **1.2.0** — Simulazione in tempo reale (coppie, campi, gironi, orari); orari previsti nel calendario;
+  numero di versione visibile.
+- **1.1.0** — Calendario automatico; sorteggio "in ordine di bravura"; gironi adattati ai campi;
+  niente menu a tendina.
+- **1.0.0** — Prima versione: gironi, classifiche, tabellone, set tennistici, temi.

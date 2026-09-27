@@ -9,6 +9,9 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // Versione del programma: aggiornala a ogni rilascio (vedi README, "Versioni").
+  const VERSION = '1.2.0';
+
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   // Ordine delle partite nel girone: nessuna coppia gioca due volte di fila (girone da 4).
@@ -45,6 +48,9 @@
         scoreFormat: '1set', // '1set' | '3set' | '3set-stb' | 'libero' (vedi FORMATS)
         crossGroup: 'assoluto', // 'assoluto' | 'media' (per partita giocata)
         maxBracket: 0, // 0 = tutte le coppie entrano nel tabellone
+        groupCount: 0, // 0 = automatico (un girone per campo quando si può)
+        matchMinutes: 30, // durata stimata di una partita, per gli orari del calendario
+        startTime: '09:00',
       },
       teams,
       groups: [],
@@ -117,19 +123,58 @@
   // Gironi da 3 o da 4. null se impossibile (1, 2, 5 coppie).
   // Regola: un girone per campo, quando si può. Pochi campi → meno gironi, quindi da 4;
   // tanti campi → più gironi, quindi da 3 (finiscono prima). Senza campi: più gironi da 4 possibile.
-  function groupSizes(n, courts) {
+  // Con `groups` si sceglie a mano il numero di gironi (entro i limiti possibili).
+  function groupSizes(n, courts, groups) {
     if (n < 3 || n === 5) return null;
     const minG = Math.ceil(n / 4); // tutti da 4 (o quasi)
     const maxG = Math.floor(n / 3); // tutti da 3 (o quasi)
-    const g = courts ? Math.min(maxG, Math.max(minG, courts)) : minG;
+    let g;
+    if (groups) {
+      g = Math.min(maxG, Math.max(minG, groups));
+    } else if (courts) {
+      g = Math.min(maxG, Math.max(minG, courts));
+      // Meno gironi (quindi più partite per coppia) se si finisce alla stessa ora.
+      const slots = groupSlots(sizesFor(n, g), courts);
+      for (let k = minG; k < g; k++) {
+        if (groupSlots(sizesFor(n, k), courts) <= slots) { g = k; break; }
+      }
+    } else {
+      g = minG;
+    }
+    return sizesFor(n, g);
+  }
+
+  // n coppie in g gironi: prima quelli da 4, poi quelli da 3.
+  function sizesFor(n, g) {
     const threes = 4 * g - n;
     const sizes = [];
     for (let i = 0; i < g; i++) sizes.push(i < g - threes ? 4 : 3);
     return sizes;
   }
 
-  function describeSizes(n, courts) {
-    const sizes = groupSizes(n, courts);
+  // Durata della fase a gironi in "turni di partita": il campo più carico
+  // (girone i sul campo i % campi, come nel sorteggio).
+  function groupSlots(sizes, courts) {
+    const load = new Array(courts).fill(0);
+    sizes.forEach((s, i) => { load[i % courts] += PAIRINGS[s].length; });
+    return Math.max(...load);
+  }
+
+  // Numeri di gironi possibili per n coppie (dal minimo, tutti da 4, al massimo, tutti da 3).
+  function groupRange(n) {
+    if (n < 3 || n === 5) return [];
+    const out = [];
+    for (let g = Math.ceil(n / 4); g <= Math.floor(n / 3); g++) out.push(g);
+    return out;
+  }
+
+  // Gironi del torneo, secondo coppie, campi ed eventuale scelta manuale.
+  function tournamentSizes(t) {
+    return groupSizes(t.teams.length, t.courts, t.settings.groupCount || 0);
+  }
+
+  function describeSizes(n, courts, groups) {
+    const sizes = groupSizes(n, courts, groups);
     if (!sizes) return null;
     const fours = sizes.filter((s) => s === 4).length;
     const threes = sizes.length - fours;
@@ -140,8 +185,8 @@
   }
 
   // Numero di teste di serie: una per girone.
-  function seedCount(n, courts) {
-    const sizes = groupSizes(n, courts);
+  function seedCount(n, courts, groups) {
+    const sizes = groupSizes(n, courts, groups);
     return sizes ? sizes.length : 0;
   }
 
@@ -186,7 +231,7 @@
   //  - 'ordine':  tutte le coppie in ordine di bravura, disposte come nel tabellone di tennis.
   //  - 'casuale': tutte le coppie sorteggiate.
   function buildGroups(t, rng) {
-    const sizes = groupSizes(t.teams.length, t.courts);
+    const sizes = tournamentSizes(t);
     if (!sizes) throw new Error('Numero di coppie non valido per gironi da 3 o 4.');
     const G = sizes.length;
     t.seedOrder = t.teams.map((x) => x.id); // ordine di bravura al momento del sorteggio
@@ -360,6 +405,10 @@
     t.groupMatches.forEach((m) => fix(m, false));
     if (t.knockout) t.knockout.rounds.forEach((r) => r.matches.forEach((m) => fix(m, true)));
     if (t.settings.scoreFormat === 'set') t.settings.scoreFormat = '1set';
+    // Impostazioni aggiunte nelle versioni successive.
+    if (t.settings.groupCount === undefined) t.settings.groupCount = 0;
+    if (!t.settings.matchMinutes) t.settings.matchMinutes = 30;
+    if (!t.settings.startTime) t.settings.startTime = '09:00';
     return t;
   }
 
@@ -592,14 +641,65 @@
     return final.matches.length === 1 ? matchWinner(final.matches[0]) : null;
   }
 
+  /* ----------------------------------------------------------- SIMULAZIONE */
+
+  // Simula un torneo: n coppie, campi, numero di gironi (0 = automatico), minuti per partita.
+  // I tempi sono in "turni di partita" (slot): ogni campo gioca una partita alla volta.
+  function simulate({ n, courts, groups, minutes }) {
+    const sizes = groupSizes(n, courts, groups);
+    if (!sizes) return null;
+    const lanes = [];
+    for (let c = 1; c <= courts; c++) lanes.push({ court: c, blocks: [], load: 0 });
+    // Stessa assegnazione dei gironi ai campi usata dal sorteggio: girone i → campo (i % campi).
+    sizes.forEach((size, i) => {
+      const lane = lanes[i % courts];
+      const matches = PAIRINGS[size].length;
+      lane.blocks.push({ name: LETTERS[i] || 'G' + (i + 1), size, matches, start: lane.load });
+      lane.load += matches;
+    });
+    const groupSlots = Math.max(...lanes.map((l) => l.load));
+    // Attesa più lunga prima della prima partita: il girone che parte per ultimo,
+    // più una partita (nel girone c'è sempre una coppia che non gioca la prima).
+    const maxWaitSlots = Math.max(...lanes.flatMap((l) => l.blocks.map((b) => b.start + 1)));
+
+    const plan = bracketPlan(n);
+    const rounds = [];
+    let alive = 0;
+    for (let r = 0; plan && r < plan.total; r++) {
+      const inRound = alive + plan.entry.filter((e) => e === r).length;
+      const matches = inRound / 2;
+      rounds.push({ name: roundName(plan.total, r), matches, slots: Math.ceil(matches / courts) });
+      alive = matches;
+    }
+    const koSlots = rounds.reduce((s, r) => s + r.slots, 0);
+    const groupMatches = sizes.reduce((s, x) => s + PAIRINGS[x].length, 0);
+    return {
+      n, courts, minutes, sizes,
+      groups: sizes.length,
+      lanes,
+      idleCourts: lanes.filter((l) => !l.blocks.length).length,
+      groupMatches,
+      perCouple: { min: sizes.includes(3) ? 2 : 3, max: sizes.includes(4) ? 3 : 2 },
+      groupSlots, maxWaitSlots, rounds, koSlots,
+      groupMinutes: groupSlots * minutes,
+      koMinutes: koSlots * minutes,
+      totalMinutes: (groupSlots + koSlots) * minutes,
+    };
+  }
+
+  // Tutte le divisioni possibili in gironi, per confrontarle.
+  function simulateOptions({ n, courts, minutes }) {
+    return groupRange(n).map((g) => simulate({ n, courts, groups: g, minutes }));
+  }
+
   function indexTeams(t) {
     return Object.fromEntries(t.teams.map((x) => [x.id, x]));
   }
 
   return {
-    LETTERS, newTournament, newTeam, teamName, clampCourts,
+    VERSION, LETTERS, newTournament, newTeam, teamName, clampCourts,
     isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
-    groupSizes, describeSizes, seedCount, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
+    groupSizes, groupRange, tournamentSizes, describeSizes, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
     FORMATS, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
     setGroupScore, revalidateScores, normalize, hasScore,
     groupStandings, overallRanking,

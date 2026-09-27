@@ -116,6 +116,28 @@
     'seed': 'Posizione della coppia nella classifica generale.',
     'change:kscore': 'Game vinti da questa coppia in questo set. Vince chi vince più set; quando la partita è finita la vincente passa al turno successivo.',
 
+    /* --- simulazione */
+    'tab:simula': 'Prova combinazioni di coppie, campi e gironi e guarda subito orari, attese e fine del torneo.',
+    'sec-sim': 'Cambia i numeri con − e +: tutto si ricalcola in tempo reale.',
+    'sim-n': 'Quante coppie partecipano.',
+    'sim-courts': 'Quanti campi avete a disposizione.',
+    'sim-minutes': 'Quanto dura in media una partita, cambio campo compreso. Un set dura di solito 30-40 minuti, al meglio dei 3 set 60-90.',
+    'sim-start': 'A che ora inizia la prima partita.',
+    'sec-sim-options': 'Tutti i modi possibili di dividere le coppie in gironi da 3 e da 4. Clicca per sceglierne uno.',
+    'action:sim-groups': 'Scegli questa divisione in gironi.',
+    'sec-sim-result': 'Come andrebbe il torneo con i numeri scelti.',
+    'kpi-matches': 'Partite totali: gironi più tabellone.',
+    'kpi-groups-end': 'Ora in cui finiscono tutti i gironi.',
+    'kpi-end': 'Ora in cui finisce la finale, se si rispettano i tempi.',
+    'kpi-wait': 'Il tempo più lungo che una coppia aspetta prima della sua prima partita.',
+    'sim-lanes': 'Una barra per campo: i gironi che ci giocano, in ordine, con gli orari.',
+    'action:sim-apply': 'Porta questi numeri nel torneo aperto. Se cambiano coppie, campi o gironi, il sorteggio va rifatto.',
+    'action:sim-new': 'Crea un nuovo torneo con questi numeri: poi dagli un nome e inserisci le coppie.',
+    'action:goto': 'Vai alla sezione indicata.',
+    'manual-groups': 'Il numero di gironi è stato scelto nella simulazione invece che in automatico.',
+    'cal-time': 'Orario previsto della partita, calcolato con l\'ora di inizio e la durata delle partite.',
+    'cal-times': 'Ora di inizio e durata delle partite usate per gli orari. Si cambiano nella scheda Simula.',
+
     /* --- impostazioni */
     'tab:impostazioni': 'Tema dei colori, dimensione del testo e aiuto. Valgono solo per questo dispositivo.',
     'sec-theme': 'Scegli i colori dell\'app. Il cambio è immediato e non modifica i tornei.',

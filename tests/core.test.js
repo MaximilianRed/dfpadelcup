@@ -51,8 +51,10 @@ test('gironi secondo i campi: pochi campi → da 4, tanti campi → da 3', () =>
   assert.deepStrictEqual(C.groupSizes(18, 6), [3, 3, 3, 3, 3, 3]);
   assert.deepStrictEqual(C.groupSizes(18, 4), [4, 4, 4, 3, 3]); // minimo 5 gironi
   assert.deepStrictEqual(C.groupSizes(16, 2), [4, 4, 4, 4]);
-  assert.deepStrictEqual(C.groupSizes(16, 5), [4, 3, 3, 3, 3]);
-  assert.deepStrictEqual(C.groupSizes(16, 20), [4, 3, 3, 3, 3]); // al massimo 5 gironi
+  // 5 gironi finirebbero alla stessa ora di 4 gironi da 4: meglio più partite per tutti.
+  assert.deepStrictEqual(C.groupSizes(16, 5), [4, 4, 4, 4]);
+  assert.deepStrictEqual(C.groupSizes(16, 20), [4, 4, 4, 4]);
+  assert.deepStrictEqual(C.groupSizes(15, 5), [3, 3, 3, 3, 3]); // 5 da 3 finiscono prima di 3 da 4 + 1 da 3
   for (let n = 6; n <= 60; n++) {
     for (let c = 1; c <= 20; c++) {
       const s = C.groupSizes(n, c);
@@ -62,6 +64,40 @@ test('gironi secondo i campi: pochi campi → da 4, tanti campi → da 3', () =>
       if (s.length > c) assert.strictEqual(s.length, Math.ceil(n / 4), `n=${n} c=${c}`);
     }
   }
+});
+
+test('numero di gironi scelto a mano', () => {
+  assert.deepStrictEqual(C.groupRange(16), [4, 5]);
+  assert.deepStrictEqual(C.groupRange(12), [3, 4]);
+  assert.deepStrictEqual(C.groupSizes(12, 4, 3), [4, 4, 4]); // scelta: 3 gironi anche con 4 campi
+  assert.deepStrictEqual(C.groupSizes(12, 1, 4), [3, 3, 3, 3]);
+  assert.deepStrictEqual(C.groupSizes(12, 4, 9), [3, 3, 3, 3]); // oltre il massimo: limitato
+  const t = makeTournament(12);
+  t.settings.groupCount = 3;
+  C.buildGroups(t);
+  assert.strictEqual(t.groups.length, 3);
+});
+
+test('simulazione: campi, attese e durata', () => {
+  // 12 coppie, 4 campi, 4 gironi da 3: tutti in campo insieme, 3 partite per campo.
+  let s = C.simulate({ n: 12, courts: 4, groups: 4, minutes: 30 });
+  assert.strictEqual(s.groupSlots, 3);
+  assert.strictEqual(s.idleCourts, 0);
+  assert.deepStrictEqual(s.perCouple, { min: 2, max: 2 });
+  assert.strictEqual(s.groupMatches, 12);
+  // Tabellone di 12: ottavi (4 partite) quarti (4) semifinali (2) finale (1) su 4 campi = 4 turni.
+  assert.deepStrictEqual(s.rounds.map((r) => [r.matches, r.slots]), [[4, 1], [4, 1], [2, 1], [1, 1]]);
+  assert.strictEqual(s.totalMinutes, (3 + 4) * 30);
+  // 3 gironi da 4 sugli stessi 4 campi: un campo libero e 6 partite per campo.
+  s = C.simulate({ n: 12, courts: 4, groups: 3, minutes: 30 });
+  assert.strictEqual(s.idleCourts, 1);
+  assert.strictEqual(s.groupSlots, 6);
+  // 16 coppie su 2 campi: 2 gironi per campo, il secondo aspetta 6 partite (+1).
+  s = C.simulate({ n: 16, courts: 2, groups: 0, minutes: 30 });
+  assert.deepStrictEqual(s.lanes.map((l) => l.blocks.map((b) => b.start)), [[0, 6], [0, 6]]);
+  assert.strictEqual(s.maxWaitSlots, 7);
+  assert.strictEqual(C.simulateOptions({ n: 16, courts: 4, minutes: 30 }).length, 2);
+  assert.strictEqual(C.simulate({ n: 5, courts: 2, minutes: 30 }), null);
 });
 
 test('teste di serie: la 1ª nel girone A, la 2ª nel B, ...', () => {
