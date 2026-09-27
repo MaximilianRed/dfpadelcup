@@ -618,27 +618,89 @@ textarea { width: 100%; resize: vertical; }
 :root[data-theme="classico"] .chip, :root[data-theme="classico"] .done-tag { background: var(--accent-soft); color: var(--accent); }
 .group-body { padding: 6px 16px 14px; }
 
-/* Programma dei campi */
-.plan { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
-.plan li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.plan-court {
-  min-width: 78px;
-  font-weight: 700;
-  font-size: 0.85rem;
+/* Scelte a pulsanti (al posto dei menu a tendina) */
+.option-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px; }
+.option-label {
+  min-width: 220px;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   color: var(--muted);
 }
-.plan-group {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 0.9rem;
+
+/* Scambio coppie a due clic */
+.swap-btn {
+  font: inherit;
+  color: var(--text);
+  background: var(--card-alt);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  text-align: left;
 }
-.plan-group.now { background: var(--ball); color: var(--ball-ink); }
-.plan .then { color: var(--muted); font-size: 0.85rem; }
+.swap-btn:hover { border-color: var(--accent); }
+.swap-btn.picked { background: var(--ball); color: var(--ball-ink); border-style: solid; border-color: transparent; font-weight: 700; }
+
+/* =====================================================================
+   CALENDARIO
+   ===================================================================== */
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.cal-grid .card { margin: 0; }
+.cal { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.cal li {
+  display: grid;
+  grid-template-columns: 28px auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--card-alt);
+  font-size: 0.93rem;
+}
+.cal li.done { background: transparent; box-shadow: inset 0 0 0 1px var(--border); }
+.cal li.now { background: var(--accent-soft); box-shadow: inset 4px 0 0 var(--ball); }
+.cal-n {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.cal li.now .cal-n { background: var(--ball); color: var(--ball-ink); border-color: transparent; }
+.cal-tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--hero-to);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+:root[data-theme="classico"] .cal-tag { background: var(--accent); }
+.cal-teams { min-width: 0; line-height: 1.25; }
+.cal-teams .win { font-weight: 700; color: var(--win); }
+.cal-vs { color: var(--muted); margin: 0 2px; }
+.cal-score { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 1.05rem; white-space: pre; }
+.cal-now { font-weight: 700; font-size: 0.8rem; color: var(--accent); white-space: nowrap; }
+.cal-todo { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.cal-bad { font-size: 0.8rem; color: var(--danger); font-weight: 700; white-space: nowrap; }
+@media (max-width: 560px) {
+  .cal li { grid-template-columns: 26px auto 1fr; }
+  .cal li > :last-child { grid-column: 2 / -1; }
+}
 
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th, td { padding: 8px 5px; text-align: center; border-bottom: 1px solid var(--border); }
@@ -666,6 +728,18 @@ td.pos { width: 34px; }
 tr.first .pos-badge { background: var(--ball); color: var(--ball-ink); border-color: transparent; }
 tr.first td.l { font-weight: 700; }
 td.pts { font-weight: 700; color: var(--accent); }
+.rank-no {
+  display: inline-block;
+  min-width: 22px;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
+}
 td.l .tag { display: block; font-size: 0.72rem; color: var(--warn); font-weight: 600; }
 td.l select { margin-top: 4px; width: 100%; font-size: 0.85rem; padding: 4px; }
 tr.band td {

@@ -41,7 +41,7 @@
       date: date || '',
       courts: clampCourts(courts),
       settings: {
-        drawMode: 'teste', // 'teste' (teste di serie + sorteggio) | 'casuale'
+        drawMode: 'teste', // 'teste' (teste di serie + sorteggio) | 'ordine' (tutte in ordine di bravura) | 'casuale'
         scoreFormat: '1set', // '1set' | '3set' | '3set-stb' | 'libero' (vedi FORMATS)
         crossGroup: 'assoluto', // 'assoluto' | 'media' (per partita giocata)
         maxBracket: 0, // 0 = tutte le coppie entrano nel tabellone
@@ -114,18 +114,22 @@
 
   /* ---------------------------------------------------------------- GIRONI */
 
-  // Più gironi da 4 possibile, il resto da 3. null se impossibile (1, 2, 5 coppie).
-  function groupSizes(n) {
+  // Gironi da 3 o da 4. null se impossibile (1, 2, 5 coppie).
+  // Regola: un girone per campo, quando si può. Pochi campi → meno gironi, quindi da 4;
+  // tanti campi → più gironi, quindi da 3 (finiscono prima). Senza campi: più gironi da 4 possibile.
+  function groupSizes(n, courts) {
     if (n < 3 || n === 5) return null;
-    const g = Math.ceil(n / 4);
+    const minG = Math.ceil(n / 4); // tutti da 4 (o quasi)
+    const maxG = Math.floor(n / 3); // tutti da 3 (o quasi)
+    const g = courts ? Math.min(maxG, Math.max(minG, courts)) : minG;
     const threes = 4 * g - n;
     const sizes = [];
     for (let i = 0; i < g; i++) sizes.push(i < g - threes ? 4 : 3);
     return sizes;
   }
 
-  function describeSizes(n) {
-    const sizes = groupSizes(n);
+  function describeSizes(n, courts) {
+    const sizes = groupSizes(n, courts);
     if (!sizes) return null;
     const fours = sizes.filter((s) => s === 4).length;
     const threes = sizes.length - fours;
@@ -136,28 +140,70 @@
   }
 
   // Numero di teste di serie: una per girone.
-  function seedCount(n) {
-    const sizes = groupSizes(n);
+  function seedCount(n, courts) {
+    const sizes = groupSizes(n, courts);
     return sizes ? sizes.length : 0;
+  }
+
+  // Ordine delle teste di serie in un tabellone di tennis, dall'alto in basso:
+  // la 1 in alto, la 2 in basso, le altre incrociate (4 → 1,4,3,2; 8 → 1,8,5,4,3,6,7,2).
+  function tennisOrder(n) {
+    let order = [1];
+    while (order.length < n) {
+      const m = order.length * 2 + 1;
+      order = order.flatMap((s, i) => (i % 2 === 0 ? [s, m - s] : [m - s, s]));
+    }
+    return order;
+  }
+
+  // Posizione (0 = la più forte) che ogni girone ha nella prima fascia, secondo il tabellone di tennis.
+  function groupSeedRanks(G) {
+    let size = 1;
+    while (size < G) size *= 2;
+    return tennisOrder(size).filter((s) => s <= G).map((s) => s - 1);
+  }
+
+  // Tutte le coppie in ordine di bravura: fascia 1 = le prime G, fascia 2 = le successive G, ...
+  // Nella fascia 1 la 1 va nel girone A (in alto), la 2 nell'ultimo (in basso), le altre incrociate;
+  // nelle fasce pari l'ordine si inverte (serpentina), così i gironi hanno la stessa forza complessiva.
+  function rankedBuckets(t, sizes) {
+    const G = sizes.length;
+    const rank = groupSeedRanks(G);
+    const buckets = sizes.map(() => []);
+    let k = 0;
+    for (let pos = 0; pos < 4; pos++) {
+      const groups = [...Array(G).keys()].filter((g) => sizes[g] > pos);
+      const want = (g) => (pos % 2 === 0 ? rank[g] : G - 1 - rank[g]);
+      groups.sort((a, b) => want(a) - want(b));
+      for (const g of groups) buckets[g].push(t.teams[k++].id);
+    }
+    return buckets;
   }
 
   // Crea i gironi.
   //  - 'teste':   le prime G coppie dell'elenco sono teste di serie (la 1ª nel girone A,
   //               la 2ª nel B, ...); tutte le altre vengono sorteggiate.
+  //  - 'ordine':  tutte le coppie in ordine di bravura, disposte come nel tabellone di tennis.
   //  - 'casuale': tutte le coppie sorteggiate.
   function buildGroups(t, rng) {
-    const sizes = groupSizes(t.teams.length);
+    const sizes = groupSizes(t.teams.length, t.courts);
     if (!sizes) throw new Error('Numero di coppie non valido per gironi da 3 o 4.');
     const G = sizes.length;
-    const order = t.settings.drawMode === 'casuale'
-      ? shuffle(t.teams, rng)
-      : t.teams.slice(0, G).concat(shuffle(t.teams.slice(G), rng));
-    const buckets = sizes.map(() => []);
-    let k = 0;
-    for (let pos = 0; pos < 4; pos++) {
-      const idx = [...Array(G).keys()];
-      if (pos % 2 === 1) idx.reverse();
-      for (const g of idx) if (sizes[g] > pos) buckets[g].push(order[k++].id);
+    t.seedOrder = t.teams.map((x) => x.id); // ordine di bravura al momento del sorteggio
+    let buckets;
+    if (t.settings.drawMode === 'ordine') {
+      buckets = rankedBuckets(t, sizes);
+    } else {
+      const order = t.settings.drawMode === 'casuale'
+        ? shuffle(t.teams, rng)
+        : t.teams.slice(0, G).concat(shuffle(t.teams.slice(G), rng));
+      buckets = sizes.map(() => []);
+      let k = 0;
+      for (let pos = 0; pos < 4; pos++) {
+        const idx = [...Array(G).keys()];
+        if (pos % 2 === 1) idx.reverse();
+        for (const g of idx) if (sizes[g] > pos) buckets[g].push(order[k++].id);
+      }
     }
     t.groups = buckets.map((teamIds, i) => ({
       id: uid('g'),
@@ -553,7 +599,7 @@
   return {
     LETTERS, newTournament, newTeam, teamName, clampCourts,
     isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
-    groupSizes, describeSizes, seedCount, buildGroups, swapTeams, isPlayed, groupHasResults,
+    groupSizes, describeSizes, seedCount, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
     FORMATS, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
     setGroupScore, revalidateScores, normalize, hasScore,
     groupStandings, overallRanking,

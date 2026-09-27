@@ -44,11 +44,31 @@ test('dimensioni gironi', () => {
   }
 });
 
+test('gironi secondo i campi: pochi campi → da 4, tanti campi → da 3', () => {
+  assert.deepStrictEqual(C.groupSizes(12, 3), [4, 4, 4]);
+  assert.deepStrictEqual(C.groupSizes(12, 4), [3, 3, 3, 3]);
+  assert.deepStrictEqual(C.groupSizes(12, 1), [4, 4, 4]);
+  assert.deepStrictEqual(C.groupSizes(18, 6), [3, 3, 3, 3, 3, 3]);
+  assert.deepStrictEqual(C.groupSizes(18, 4), [4, 4, 4, 3, 3]); // minimo 5 gironi
+  assert.deepStrictEqual(C.groupSizes(16, 2), [4, 4, 4, 4]);
+  assert.deepStrictEqual(C.groupSizes(16, 5), [4, 3, 3, 3, 3]);
+  assert.deepStrictEqual(C.groupSizes(16, 20), [4, 3, 3, 3, 3]); // al massimo 5 gironi
+  for (let n = 6; n <= 60; n++) {
+    for (let c = 1; c <= 20; c++) {
+      const s = C.groupSizes(n, c);
+      assert.strictEqual(s.reduce((a, b) => a + b, 0), n, `n=${n} c=${c}`);
+      assert.ok(s.every((x) => x === 3 || x === 4), `n=${n} c=${c}`);
+      // Se i gironi sono più dei campi, sono il minimo possibile (tutti da 4 o quasi).
+      if (s.length > c) assert.strictEqual(s.length, Math.ceil(n / 4), `n=${n} c=${c}`);
+    }
+  }
+});
+
 test('teste di serie: la 1ª nel girone A, la 2ª nel B, ...', () => {
   for (const n of [9, 14, 16, 22]) {
     const t = makeTournament(n);
     C.buildGroups(t);
-    const G = C.seedCount(n);
+    const G = C.seedCount(n, t.courts);
     const seeds = t.teams.slice(0, G).map((x) => t.groups.findIndex((g) => g.teamIds.includes(x.id)));
     assert.deepStrictEqual(seeds, [...Array(G).keys()], `n=${n}`);
     // Ogni girone ha esattamente una testa di serie, in prima posizione.
@@ -67,6 +87,38 @@ test('teste di serie: le altre coppie sono sorteggiate', () => {
     layouts.add(t.groups.map((g) => g.teamIds.join()).join('|'));
   }
   assert.ok(layouts.size > 1);
+});
+
+test('ordine del tabellone di tennis', () => {
+  assert.deepStrictEqual(C.tennisOrder(4), [1, 4, 3, 2]);
+  assert.deepStrictEqual(C.tennisOrder(8), [1, 8, 5, 4, 3, 6, 7, 2]);
+});
+
+test('ordine di bravura: 16 coppie come nel tennis, gironi equilibrati', () => {
+  const t = makeTournament(16);
+  t.settings.drawMode = 'ordine';
+  C.buildGroups(t);
+  const seed = (id) => t.teams.findIndex((x) => x.id === id) + 1;
+  const layout = t.groups.map((g) => g.teamIds.map(seed));
+  assert.deepStrictEqual(layout, [[1, 8, 9, 16], [4, 5, 12, 13], [3, 6, 11, 14], [2, 7, 10, 15]]);
+  layout.forEach((g) => assert.strictEqual(g.reduce((a, b) => a + b, 0), 34));
+  // Sempre uguale: non c'è sorteggio.
+  C.buildGroups(t);
+  assert.deepStrictEqual(t.groups.map((g) => g.teamIds.map(seed)), layout);
+});
+
+test('ordine di bravura: 1 in alto, 2 in basso, tutte assegnate', () => {
+  for (let n = 3; n <= 40; n++) {
+    if (!C.groupSizes(n)) continue;
+    const t = makeTournament(n);
+    t.settings.drawMode = 'ordine';
+    C.buildGroups(t);
+    const seed = (id) => t.teams.findIndex((x) => x.id === id) + 1;
+    assert.strictEqual(seed(t.groups[0].teamIds[0]), 1, `n=${n}`);
+    if (t.groups.length > 1) assert.strictEqual(seed(t.groups[t.groups.length - 1].teamIds[0]), 2, `n=${n}`);
+    assert.strictEqual(new Set(t.groups.flatMap((g) => g.teamIds)).size, n, `n=${n}`);
+    t.groups.forEach((g, i) => assert.strictEqual(g.teamIds.length, C.groupSizes(n, t.courts)[i]));
+  }
 });
 
 test('sorteggio casuale: tutte le coppie assegnate', () => {
