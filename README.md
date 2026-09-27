@@ -4,11 +4,11 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
 
 ## Come si usa
 
-0. **Simula** (facoltativo): con − e + cambi coppie, campi, minuti a partita e ora di inizio e vedi subito
-   le divisioni possibili in gironi a confronto, l'occupazione dei campi, le attese e l'ora di fine.
-   Poi *Applica al torneo* o *Nuovo torneo con questi numeri*.
-1. **Tornei**: crea un torneo (nome, data, campi da 1 a 20, numero di coppie). L'app prepara le righe con nomi di default
-   (Giocatore 1A / Giocatore 1B, ...), così i gironi si possono creare subito e i nomi correggere dopo.
+1. **Tornei → Nuovo torneo**: nome e data, poi con − e + coppie, campi, minuti a partita e ora di inizio.
+   Subito sotto compaiono la **scelta dei gironi** (tutte le divisioni possibili a confronto, con quella
+   consigliata) e i **tempi**: occupazione dei campi, fine gironi, fine torneo, attese, orari del tabellone.
+   *Crea torneo* prepara le righe con nomi di default (Giocatore 1A / Giocatore 1B, ...), così i gironi si
+   possono creare subito e i nomi correggere dopo. Numeri e tempi si cambiano anche dopo, nella scheda Coppie.
 2. **Coppie**: scrivi i nomi (Invio passa al campo successivo) oppure incolla un elenco (`Rossi / Bianchi`, una per riga).
    Quando tutte le coppie sono complete scegli come formare i gironi:
    - **Sorteggio casuale**: tutte le coppie sorteggiate;
@@ -45,7 +45,7 @@ Passando il mouse su qualsiasi voce (pulsanti, campi, intestazioni delle tabelle
 - **Gironi**: da 3 o da 4 coppie, un girone per campo quando si può: con pochi campi gironi da 4,
   con tanti campi gironi da 3, ma solo se così il torneo finisce prima (a parità di orario si preferiscono
   gironi da 4, con più partite per tutti). Se i gironi sono più dei campi, alcuni giocano dopo.
-  Nella simulazione si può scegliere a mano un'altra divisione.
+  Nella scelta dei gironi si può prendere a mano un'altra divisione.
   Non si possono fare con 1, 2 o 5 coppie.
 - **Classifica del girone**: partite vinte → game vinti → game persi (meno è meglio) → scontro diretto → monetina.
 - **Classifica generale**: prima tutte le prime dei gironi, poi le seconde, ecc.; dentro ogni fascia
@@ -82,6 +82,8 @@ su un altro dispositivo, e **Importa** per ricaricarlo.
 La versione è scritta nella testata dell'app e in *Impostazioni → Informazioni*
 (si cambia in `js/core.js`, costante `VERSION`).
 
+- **1.3.0** — La simulazione è il modo di creare il torneo: numeri, scelta dei gironi e tempi subito
+  in *Nuovo torneo* e nella scheda Coppie; tolta la scheda Simula.
 - **1.2.0** — Simulazione in tempo reale (coppie, campi, gironi, orari); orari previsti nel calendario;
   numero di versione visibile.
 - **1.1.0** — Calendario automatico; sorteggio "in ordine di bravura"; gironi adattati ai campi;

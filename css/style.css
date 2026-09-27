@@ -786,7 +786,11 @@ textarea { width: 100%; resize: vertical; }
   align-items: center;
 }
 .sim-notes { margin: 14px 0 0; padding-left: 20px; color: var(--warn); font-size: 0.9rem; }
-.sim-sub { margin: 18px 0 8px !important; font-size: 1.05rem !important; text-transform: uppercase; color: var(--muted); }
+.plan-sub { margin: 20px 0 10px !important; font-size: 1.05rem !important; text-transform: uppercase; color: var(--muted); }
+.plan-sub:first-child { margin-top: 0 !important; }
+.create-row { display: flex; justify-content: flex-end; margin-top: 20px; }
+.btn.big { padding: 14px 28px; font-size: 1.1rem; border-radius: 14px; }
+@media (max-width: 560px) { .create-row .btn { width: 100%; } }
 .sim-rounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .sim-rounds li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
