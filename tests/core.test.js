@@ -254,6 +254,53 @@ test('piano tabellone: ogni turno ha un numero pari di coppie', () => {
   }
 });
 
+test('tabellone configurabile: ogni combinazione è giocabile', () => {
+  for (let n = 2; n <= 40; n++) {
+    for (let d = 0; d <= n; d++) {
+      for (const e of [0, 4, 8, 16, 32]) {
+        const p = C.bracketPlan(n, d, e || null);
+        let alive = 0;
+        for (let r = 0; r < p.total; r++) {
+          const inRound = alive + p.entry.filter((x) => x === r).length;
+          assert.ok(inRound % 2 === 0 && inRound >= 2, `n=${n} d=${d} e=${e} turno ${r}: ${inRound}`);
+          alive = inRound / 2;
+        }
+        assert.strictEqual(alive, 1, `n=${n} d=${d} e=${e}`);
+        // Le coppie dirette entrano tutte insieme, dopo le altre.
+        const direct = p.entry.slice(0, p.direct);
+        assert.ok(direct.every((x) => x === direct[0]) && p.entry.slice(p.direct).every((x) => x <= (direct[0] ?? 99)));
+      }
+    }
+  }
+});
+
+test('tabellone configurabile: scelte dell\'organizzatore', () => {
+  // 12 coppie, 2 dirette in semifinale.
+  let p = C.bracketPlan(12, 2, 4);
+  assert.strictEqual(p.direct, 2);
+  assert.strictEqual(C.roundName(p.total, p.entry[0]), 'Semifinali');
+  // Nessuna diretta: tabellone da 16 con 4 bye alle prime.
+  p = C.bracketPlan(12, 0);
+  assert.deepStrictEqual(p.entry.slice(0, 5), [1, 1, 1, 1, 0]);
+  // 8 dirette ai quarti con 12 coppie non stanno: diventano 7.
+  assert.deepStrictEqual(C.bracketConfig(12, 8, 8), { direct: 7, entry: 8 });
+  assert.deepStrictEqual(C.bracketEntryOptions(12, 4), [8]);
+  assert.deepStrictEqual(C.bracketEntryOptions(20, 2), [4, 8, 16]);
+  // Nella simulazione si vede chi entra in ogni turno.
+  const s = C.simulate({ n: 12, courts: 4, minutes: 30 });
+  assert.deepStrictEqual(s.rounds.map((r) => [r.name, r.enter, r.winners]), [
+    ['Ottavi di finale', [5, 12], 0], ['Quarti di finale', [1, 4], 4], ['Semifinali', null, 4], ['Finale', null, 2],
+  ]);
+  // Solo le prime 8 nel tabellone.
+  assert.strictEqual(C.simulate({ n: 12, courts: 4, minutes: 30, ko: { size: 8 } }).rounds[0].name, 'Quarti di finale');
+  // Il torneo usa le scelte salvate.
+  const t = makeTournament(12);
+  t.settings.bracketDirect = 2; t.settings.bracketEntry = 4;
+  C.buildGroups(t); playGroups(t); C.createKnockout(t);
+  const top2 = t.knockout.seeds.slice(0, 2);
+  assert.ok(top2.every((id) => C.roundName(t.knockout.total, t.knockout.entry[id]) === 'Semifinali'));
+});
+
 test('ottavi con 12 coppie: 5-12, 6-11, 7-10, 8-9', () => {
   const t = makeTournament(12);
   C.buildGroups(t);

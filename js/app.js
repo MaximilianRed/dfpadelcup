@@ -228,8 +228,10 @@
       <div class="grid-form">
         <label>Nome<input data-change="t-name" value="${esc(t.name)}" maxlength="80"></label>
         <label>Data<input type="date" data-change="t-date" value="${esc(t.date)}"></label>
-        <label>Coppie ammesse al tabellone<input type="number" min="0" inputmode="numeric" data-change="maxBracket" value="${s.maxBracket || ''}" placeholder="Tutte"></label>
       </div>
+      <label class="rules-field" data-help-key="rules">Regolamento
+        <textarea data-change="t-rules" rows="6" placeholder="Scrivi qui il regolamento del torneo: orari di ritrovo, quote, regole di gioco, premi...">${esc(t.rules || '')}</textarea>
+      </label>
       <div class="option-row" data-help-key="opt-format">
         <span class="option-label">Formato delle partite</span>
         <div class="segmented" role="group" aria-label="Formato delle partite">
@@ -280,7 +282,7 @@
     <section class="card">
       <h2 data-help-key="sec-draw">${t.groups.length ? 'Rifai i gironi' : 'Crea i gironi'}</h2>
       <p data-help-key="groups-summary" style="margin-top:0">${desc
-        ? `<strong>${n} coppie</strong> → ${desc}${turns > 1 ? ` · ${turns} turni su ${t.courts} ${t.courts === 1 ? 'campo' : 'campi'}` : ''}`
+        ? `<strong>${n} coppie</strong> → ${desc}${turns > 1 ? ' · alcuni gironi giocano dopo, quando si libera il campo' : ''}`
         : `<span class="warn">Con ${n} coppie non si possono fare gironi da 3 o 4.</span>`}
         ${s.groupCount ? ' <span class="badge" data-help-key="manual-groups">scelti a mano</span>' : ''}</p>
       ${sizes && !ready ? `<p class="notice">Mancano <strong>${n - filled}</strong> ${n - filled === 1 ? 'coppia da completare' : 'coppie da completare'}: servono i nomi di entrambi i giocatori.</p>` : ''}
@@ -321,6 +323,7 @@
         <button class="${ui.court ? '' : 'active'}" data-action="court-filter" data-court="0">Tutti</button>
         ${courts.map((c) => `<button class="${ui.court === c ? 'active' : ''}" data-action="court-filter" data-court="${c}">Campo ${c}</button>`).join('')}
       </div>` : ''}
+      <span class="badge" data-help-key="badge-groups">${C.describeGroups(t.groups.map((g) => g.teamIds.length), t.courts)}</span>
       <span class="badge" data-help-key="badge-matches">${played}/${total} partite</span>
       <span class="badge" data-help-key="badge-draw">${{
         casuale: ICON.dice + ' Sorteggio casuale',
@@ -448,7 +451,7 @@
     if (!t.groups.length) return empty('La classifica sarà disponibile dopo aver creato i gironi.', 'coppie', 'Vai alle coppie');
     const { ranking, complete } = C.overallRanking(t);
     const limit = t.settings.maxBracket > 0 ? Math.min(t.settings.maxBracket, ranking.length) : ranking.length;
-    const plan = C.bracketPlan(limit);
+    const plan = C.bracketPlan(limit, t.settings.bracketDirect, t.settings.bracketEntry);
     const missing = t.groupMatches.filter((m) => !C.isPlayed(m)).length;
     const avg = t.settings.crossGroup === 'media';
     const fmt = (r, f) => (avg && r.played ? (r[f] / r.played).toFixed(2).replace('.', ',') : r[f]);
@@ -628,12 +631,13 @@
     }
 
     return `
-    <div class="toolbar"><span class="badge">${t.groups.length} ${t.groups.length === 1 ? 'girone' : 'gironi'} su ${groupsByCourt().size} ${groupsByCourt().size === 1 ? 'campo' : 'campi'}</span>
+    <div class="toolbar"><span class="badge">${C.describeGroups(t.groups.map((g) => g.teamIds.length), t.courts)}</span>
       <span class="badge" data-help-key="cal-times">${ICON.clock} inizio ${esc(t.settings.startTime)} · ${min} min a partita</span>
       <span class="spacer"></span>
       <button class="btn small" data-action="goto" data-tab="coppie">${ICON.clock} Cambia orari</button>
       <button class="btn small" data-action="print">${ICON.print} Stampa</button></div>
     <p class="hint" style="margin:0 0 16px">Le partite di ogni campo si giocano nell'ordine indicato; gli orari sono una stima. I risultati si inseriscono nella scheda <strong>Gironi</strong>${t.knockout ? ' e nella scheda <strong>Tabellone</strong>' : ''}.</p>
+    ${t.rules && t.rules.trim() ? `<section class="card rules-card"><h2 data-help-key="rules-view">Regolamento</h2><div class="rules-text">${esc(t.rules)}</div></section>` : ''}
     <div class="cal-grid">${cols}</div>
     ${ko}`;
   }
@@ -654,12 +658,13 @@
   // Numeri del pianificatore: per il nuovo torneo ('new') oppure per il torneo aperto ('t').
   function planOf(target) {
     if (target === 'new') {
-      if (!ui.newSim) ui.newSim = { n: 16, courts: 4, groups: 0, minutes: 30, start: '09:00' };
+      if (!ui.newSim) ui.newSim = { n: 16, courts: 4, groups: 0, minutes: 30, start: '09:00', ko: { size: 0, direct: null, entry: null } };
       return ui.newSim;
     }
     return {
       n: t.teams.length, courts: t.courts, groups: t.settings.groupCount || 0,
       minutes: t.settings.matchMinutes || 30, start: t.settings.startTime || '09:00',
+      ko: { size: t.settings.maxBracket || 0, direct: t.settings.bracketDirect, entry: t.settings.bracketEntry },
     };
   }
 
@@ -696,7 +701,7 @@
   function planDetails(target) {
     const p = planOf(target);
     const start = toMin(p.start);
-    const opts = C.simulateOptions({ n: p.n, courts: p.courts, minutes: p.minutes });
+    const opts = C.simulateOptions({ n: p.n, courts: p.courts, minutes: p.minutes, ko: p.ko });
     const { autoG, chosen } = planChoice(p);
     const s = opts.find((o) => o.groups === chosen);
     if (!s) return `<p class="warn" style="margin:0">Con ${p.n} coppie non si possono fare gironi da 3 o 4: cambia il numero di coppie.</p>`;
@@ -733,13 +738,38 @@
       </div>`;
     }).join('');
 
+    // Tabellone: chi entra in ogni turno e a che ora.
+    const ord = (x) => `${x}ª`;
     let slot = s.groupSlots;
     const rounds = s.rounds.map((r) => {
+      const who = [];
+      if (r.enter) {
+        const [from, to] = r.enter;
+        who.push(from === to ? `entra la ${ord(from)}`
+          : from === 1 ? `entrano le prime ${to}`
+            : `entrano le coppie dalla ${ord(from)} alla ${ord(to)}`);
+      }
+      if (r.winners) who.push(`${r.winners} ${r.winners === 1 ? 'vincente' : 'vincenti'} del turno prima`);
       const row = `<li><span class="cal-tag">${at(slot)}</span><strong>${r.name}</strong>
-        <span class="muted">${r.matches} ${r.matches === 1 ? 'partita' : 'partite'}${r.slots > 1 ? ` · ${r.slots} turni sui campi` : ''}</span></li>`;
+        <span class="muted">${r.matches} ${r.matches === 1 ? 'partita' : 'partite'} · ${who.join(' + ')}${r.slots > 1 ? ` · ${r.slots} turni sui campi` : ''}</span></li>`;
       slot += r.slots;
       return row;
     }).join('');
+    const b = s.bracket;
+    const entryOpts = C.bracketEntryOptions(b.size, Math.max(1, b.direct));
+    const ENTRY = { 4: 'Semifinali', 8: 'Quarti', 16: 'Ottavi', 32: 'Sedicesimi', 64: 'Trentaduesimi' };
+    const pow2 = (x) => x > 0 && (x & (x - 1)) === 0;
+    const koControls = `
+      <div class="steppers">
+        ${stepper(target, 'kosize', 'Coppie nel tabellone', b.size === p.n ? `${b.size} <small>tutte</small>` : b.size, 'ko-size')}
+        ${stepper(target, 'direct', 'Passano direttamente', b.direct, 'ko-direct')}
+      </div>
+      ${b.direct && entryOpts.length ? `<div class="option-row" data-help-key="ko-entry">
+        <span class="option-label">${b.direct === 1 ? 'La prima entra' : `Le prime ${b.direct} entrano`} in</span>
+        <div class="segmented" role="group" aria-label="Turno di ingresso">
+          ${entryOpts.map((S) => `<button type="button" class="${S === b.entry ? 'active' : ''}" data-action="plan-entry" data-target="${target}" data-s="${S}">${ENTRY[S] || S}</button>`).join('')}
+        </div>
+      </div>` : `<p class="hint">Nessuna coppia salta i turni${pow2(b.size) ? '' : ': con un numero di coppie diverso da 4, 8, 16, 32 le migliori saltano solo il primo turno'}.</p>`}`;
 
     const notes = [];
     if (s.idleCourts) notes.push(`${s.idleCourts} ${s.idleCourts === 1 ? 'campo resta libero' : 'campi restano liberi'} durante i gironi.`);
@@ -753,7 +783,8 @@
       ${kpis}
       <div class="lanes" data-help-key="sim-lanes">${lanes}</div>
       ${notes.length ? `<ul class="sim-notes">${notes.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
-      <h3 class="plan-sub">Tabellone (tutte le ${p.n} coppie)</h3>
+      <h3 class="plan-sub" data-help-key="sec-ko-plan">Tabellone</h3>
+      ${koControls}
       <ol class="sim-rounds">${rounds}</ol>`;
   }
 
@@ -976,6 +1007,20 @@
       } else if (f === 'courts') {
         const c = Math.min(20, Math.max(1, p.courts + d));
         if (el.dataset.target === 'new') { p.courts = c; p.groups = 0; } else setCourts(c);
+      } else if (f === 'kosize' || f === 'direct') {
+        const cur = C.simulate({ n: p.n, courts: p.courts, groups: p.groups, minutes: p.minutes, ko: p.ko });
+        if (!cur) return;
+        const b = cur.bracket;
+        const ko = { size: p.ko.size, direct: b.direct, entry: b.entry };
+        if (f === 'kosize') {
+          const size = Math.min(p.n, Math.max(2, b.size + d));
+          ko.size = size >= p.n ? 0 : size;
+        } else {
+          const c = C.bracketConfig(ko.size || p.n, Math.max(0, b.direct + d), b.entry);
+          ko.direct = c.direct;
+          ko.entry = c.entry;
+        }
+        setKo(el.dataset.target, ko);
       } else if (f === 'minutes') {
         const m = Math.min(180, Math.max(10, p.minutes + d * 5));
         if (el.dataset.target === 'new') p.minutes = m; else { t.settings.matchMinutes = m; persist(); }
@@ -983,6 +1028,12 @@
         const st = fmtTime(Math.min(23 * 60, Math.max(6 * 60, toMin(p.start) + d * 15)));
         if (el.dataset.target === 'new') p.start = st; else { t.settings.startTime = st; persist(); }
       }
+      render();
+    },
+    'plan-entry': (el) => {
+      const p = planOf(el.dataset.target);
+      const cur = C.simulate({ n: p.n, courts: p.courts, groups: p.groups, minutes: p.minutes, ko: p.ko });
+      setKo(el.dataset.target, { size: p.ko.size, direct: cur.bracket.direct, entry: parseInt(el.dataset.s, 10) });
       render();
     },
     'plan-groups': (el) => {
@@ -1056,6 +1107,16 @@
     }
   }
 
+  // Scelte del tabellone: coppie ammesse, coppie dirette, turno di ingresso.
+  function setKo(target, ko) {
+    if (target === 'new') { planOf('new').ko = ko; return; }
+    t.settings.maxBracket = ko.size || 0;
+    t.settings.bracketDirect = ko.direct;
+    t.settings.bracketEntry = ko.entry;
+    persist();
+    if (t.knockout) toast('Vale per il prossimo tabellone: rigeneralo dalla Classifica');
+  }
+
   // Cambia il numero di campi del torneo aperto.
   function setCourts(n) {
     if (n === t.courts) return;
@@ -1098,6 +1159,7 @@
 
     't-name': (el) => { t.name = el.value.trim() || 'Torneo'; commit(); },
     't-date': (el) => { t.date = el.value; commit(); },
+    't-rules': (el) => { t.rules = el.value; persist(); toast('Regolamento salvato'); },
     maxBracket: (el) => {
       const n = parseInt(el.value, 10);
       t.settings.maxBracket = Number.isFinite(n) && n >= 2 ? n : 0;
@@ -1170,6 +1232,9 @@
       t.settings.groupCount = chosen === autoG ? 0 : chosen;
       t.settings.matchMinutes = p.minutes;
       t.settings.startTime = p.start;
+      t.settings.maxBracket = p.ko.size || 0;
+      t.settings.bracketDirect = p.ko.direct;
+      t.settings.bracketEntry = p.ko.entry;
       S.save(t);
       S.setCurrentId(t.id);
       ui.newSim = null;

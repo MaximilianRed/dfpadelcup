@@ -9,6 +9,9 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
    consigliata) e i **tempi**: occupazione dei campi, fine gironi, fine torneo, attese, orari del tabellone.
    *Crea torneo* prepara le righe con nomi di default (Giocatore 1A / Giocatore 1B, ...), così i gironi si
    possono creare subito e i nomi correggere dopo. Numeri e tempi si cambiano anche dopo, nella scheda Coppie.
+   Nella parte *Tabellone* si decide quante coppie entrano, quante passano direttamente e in quale turno
+   (semifinali, quarti, ottavi, sedicesimi); per ogni turno è scritto chi ci entra.
+   Nella scheda Coppie c'è anche il **regolamento** a testo libero, che compare in cima al Calendario.
 2. **Coppie**: scrivi i nomi (Invio passa al campo successivo) oppure incolla un elenco (`Rossi / Bianchi`, una per riga).
    Quando tutte le coppie sono complete scegli come formare i gironi:
    - **Sorteggio casuale**: tutte le coppie sorteggiate;
@@ -51,7 +54,7 @@ Passando il mouse su qualsiasi voce (pulsanti, campi, intestazioni delle tabelle
 - **Classifica generale**: prima tutte le prime dei gironi, poi le seconde, ecc.; dentro ogni fascia
   partite vinte → game vinti → game persi → monetina. Nelle impostazioni si può usare la media per partita,
   più equa se ci sono gironi da 3 e da 4.
-- **Tabellone**: le prime 4 entrano ai quarti. Le altre si qualificano nei turni precedenti; se servono
+- **Tabellone** (predefinito, modificabile): le prime 4 entrano ai quarti. Le altre si qualificano nei turni precedenti; se servono
   turni con numeri dispari, le meglio classificate saltano il primo turno. In ogni turno la coppia meglio
   classificata affronta la peggiore rimasta. Non sono ammessi pareggi.
 
@@ -84,6 +87,8 @@ La versione è scritta nella testata dell'app e in *Impostazioni → Informazion
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.4.0** — Tabellone configurabile (coppie ammesse, coppie dirette, turno di ingresso) con chi entra in
+  ogni turno; regolamento a testo libero; descrizioni complete dei gironi ("4 gironi da 4 coppie su 4 campi").
 - **1.3.0** — La simulazione è il modo di creare il torneo: numeri, scelta dei gironi e tempi subito
   in *Nuovo torneo* e nella scheda Coppie; tolta la scheda Simula.
 - **1.2.0** — Simulazione in tempo reale (coppie, campi, gironi, orari); orari previsti nel calendario;

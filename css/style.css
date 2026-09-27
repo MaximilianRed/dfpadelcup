@@ -789,6 +789,22 @@ textarea { width: 100%; resize: vertical; }
 .plan-sub { margin: 20px 0 10px !important; font-size: 1.05rem !important; text-transform: uppercase; color: var(--muted); }
 .plan-sub:first-child { margin-top: 0 !important; }
 .create-row { display: flex; justify-content: flex-end; margin-top: 20px; }
+.stepper-val small { font-family: "Barlow", sans-serif; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-left: 4px; }
+
+/* Regolamento */
+.rules-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.rules-field textarea { color: var(--text); font-size: 1rem; text-transform: none; letter-spacing: 0; line-height: 1.5; min-height: 120px; }
+.rules-text { white-space: pre-wrap; line-height: 1.55; }
 .btn.big { padding: 14px 28px; font-size: 1.1rem; border-radius: 14px; }
 @media (max-width: 560px) { .create-row .btn { width: 100%; } }
 .sim-rounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
