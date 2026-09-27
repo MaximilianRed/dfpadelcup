@@ -26,7 +26,10 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
 4. **Gironi**: inserisci i game di ogni partita (Invio passa al campo successivo). Si può filtrare per campo.
    Con *Modifica composizione* si scambiano due coppie cliccandole una dopo l'altra.
 5. **Classifica**: quando i gironi sono conclusi, premi *Genera il tabellone*.
-6. **Tabellone**: inserisci i risultati; i turni successivi si creano da soli.
+6. **Tabellone**: *Tabellone completo* mostra tutto il tabellone, dal primo turno alla finale (con i posti ancora
+   da definire), da ingrandire con − / + o «Adatta». Si stampa in orizzontale su **1 pagina** o **su più fogli**
+   (stampante o «Salva come PDF») e si **condivide** come immagine orizzontale (WhatsApp dal telefono).
+   In *Inserisci risultati* si segnano i punteggi; i turni successivi si creano da soli.
 
 In **Impostazioni** si scelgono il tema (Padel, Padel notte, Campo verde, Classico o Automatico),
 la dimensione del testo e se mostrare l'aiuto. Valgono solo per il dispositivo in uso.
@@ -87,6 +90,8 @@ La versione è scritta nella testata dell'app e in *Impostazioni → Informazion
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.5.0** — Tabellone completo con zoom, stampa orizzontale su 1 pagina o più fogli, condivisione come
+  immagine; grafiche di racchette e palline; nel pianificatore le fasce dei gironi ("le prime dei gironi").
 - **1.4.0** — Tabellone configurabile (coppie ammesse, coppie dirette, turno di ingresso) con chi entra in
   ogni turno; regolamento a testo libero; descrizioni complete dei gironi ("4 gironi da 4 coppie su 4 campi").
 - **1.3.0** — La simulazione è il modo di creare il torneo: numeri, scelta dei gironi e tempi subito

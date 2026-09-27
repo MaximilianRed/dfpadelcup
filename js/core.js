@@ -10,7 +10,7 @@
   'use strict';
 
   // Versione del programma: aggiornala a ogni rilascio (vedi README, "Versioni").
-  const VERSION = '1.4.0';
+  const VERSION = '1.5.0';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 

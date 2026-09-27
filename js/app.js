@@ -76,6 +76,7 @@
     star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/></svg>',
     rank: '<svg viewBox="0 0 24 24"><path d="M4 6h2M4 12h2M4 18h2M9 6h11M9 12h8M9 18h5"/></svg>',
     sim: '<svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg>',
+    share: '<svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg>',
     clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   };
   const TROPHY = '<svg class="trophy" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v2h3v2a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 13.9V17h3v2H8v-2h3v-3.1A5 5 0 0 1 8.3 11H8a4 4 0 0 1-4-4V5h3zm-1 4v0a2 2 0 0 0 1 1.7V7zm12 0v1.7A2 2 0 0 0 19 7zM6 20h12v2H6z"/></svg>';
@@ -85,7 +86,10 @@
       <line class="c-line" x1="55" y1="15" x2="55" y2="95"/><line class="c-line" x1="145" y1="15" x2="145" y2="95"/>
       <line class="c-line" x1="55" y1="55" x2="145" y2="55"/>
       <line class="c-net" x1="100" y1="8" x2="100" y2="102"/>
-      <circle class="c-ball" cx="128" cy="36" r="7"/></svg>`;
+      <circle class="c-ball" cx="128" cy="36" r="7"/>
+      <g transform="translate(62 70) rotate(-28)"><rect x="-3" y="10" width="6" height="16" rx="2.5" class="c-racket"/>
+        <ellipse cx="0" cy="0" rx="12" ry="14" class="c-racket"/>
+        <g class="c-holes"><circle cx="-4" cy="-5" r="1.4"/><circle cx="4" cy="-5" r="1.4"/><circle cx="0" cy="0" r="1.4"/><circle cx="-4" cy="5" r="1.4"/><circle cx="4" cy="5" r="1.4"/></g></g></svg>`;
 
   /* --------------------------------------------------------------- utilità */
 
@@ -533,6 +537,41 @@
     if (!ko) return empty('Il tabellone si genera dalla classifica quando i gironi sono conclusi.', 'classifica', 'Vai alla classifica');
     const champ = C.champion(t);
     const seedNo = (id) => ko.seeds.indexOf(id) + 1;
+    const full = ui.koView !== 'edit';
+
+    const toolbar = `
+    <div class="toolbar">
+      <div class="segmented" role="group" aria-label="Vista del tabellone">
+        <button class="${full ? 'active' : ''}" data-action="ko-view" data-v="full" data-help-key="ko-view-full">Tabellone completo</button>
+        <button class="${full ? '' : 'active'}" data-action="ko-view" data-v="edit" data-help-key="ko-view-edit">Inserisci risultati</button>
+      </div>
+      <span class="badge" data-help-key="badge-ko">${ko.seeds.length} coppie</span>
+      <span class="spacer"></span>
+      ${full ? `
+      <div class="zoom" role="group" aria-label="Zoom" data-help-key="ko-zoom">
+        <button class="icon" data-action="ko-zoom" data-z="out" aria-label="Rimpicciolisci">−</button>
+        <span class="zoom-val">${ui.koZoom ? Math.round(ui.koZoom * 100) + '%' : 'intero'}</span>
+        <button class="icon" data-action="ko-zoom" data-z="in" aria-label="Ingrandisci">+</button>
+        <button class="btn small ghost" data-action="ko-zoom" data-z="fit">Adatta</button>
+      </div>
+      <button class="btn small" data-action="ko-print" data-mode="fit">${ICON.print} Stampa 1 pagina</button>
+      <button class="btn small" data-action="ko-print" data-mode="multi">${ICON.print} Stampa su più fogli</button>
+      <button class="btn small ball" data-action="ko-share">${ICON.share} Condividi</button>`
+    : `<button class="btn small" data-action="print">${ICON.print} Stampa</button>`}
+    </div>`;
+
+    const banner = champ ? `<section class="card champion" data-help-key="champion">
+      <svg class="crossed" viewBox="0 0 100 90" aria-hidden="true">${crossedArt(50, 52, 78, { head: '#ffffff', holes: '#173f80', ball: '#d4f53c', stroke: '#173f80' })}</svg>
+      <div><div class="label">Vincitori del torneo</div><div class="who">${name(champ)}</div></div>${TROPHY}</section>` : '';
+
+    if (full) {
+      const { svg, w } = bracketSVG();
+      const z = ui.koZoom;
+      return toolbar + banner + `
+      <div class="ko-sheet-wrap"><div class="ko-sheet" data-w="${w}" style="${z ? `width:${Math.round(w * z)}px` : ''}">${svg}</div></div>
+      <p class="hint no-print">Con − e + ingrandisci, con <em>Adatta</em> lo vedi intero; sul telefono puoi anche allargare con due dita.
+      I punteggi si inseriscono in <em>Inserisci risultati</em>. <em>Stampa</em>: nella finestra di stampa scegli la stampante oppure «Salva come PDF».</p>`;
+    }
 
     let alive = 0;
     const cols = [];
@@ -553,11 +592,7 @@
       alive = (alive + entering.length) / 2;
     }
 
-    return `
-    <div class="toolbar"><span class="badge" data-help-key="badge-ko">${ko.seeds.length} coppie</span><span class="spacer"></span>
-      <button class="btn small" data-action="print">${ICON.print} Stampa</button></div>
-    ${champ ? `<section class="card champion" data-help-key="champion">${TROPHY}
-      <div><div class="label">Vincitori del torneo</div><div class="who">${name(champ)}</div></div>${TROPHY}</section>` : ''}
+    return toolbar + banner + `
     <div class="bracket">${cols.join('')}</div>
     <p class="hint">Il numero nel cerchio è la posizione nella classifica generale. In ogni turno la coppia meglio classificata affronta la peggiore rimasta.
     Nel tabellone non sono ammessi pareggi.</p>`;
@@ -568,6 +603,242 @@
       ${scoreBoard(m, true, seedNo)}
       <div class="kmeta" data-help-key="k-court">Campo ${m.court}</div>
     </div>`;
+  }
+
+  /* ----------------------------------------------------- tabellone completo */
+
+  // Colori fissi del foglio del tabellone (uguale a schermo, in stampa e nell'immagine).
+  const SHEET = {
+    bg: '#ffffff', ink: '#0f1d33', muted: '#6b7a93', line: '#d5deeb', box: '#f7f9fd',
+    blue: '#1f5fbf', navy: '#173f80', soft: '#e4edfb', ball: '#d4f53c', ballInk: '#1d2a00',
+  };
+
+  // Racchetta da padel con pallina, in SVG con colori espliciti (per il foglio e l'immagine).
+  function racketArt(x, y, size, rotate, c) {
+    const s = size / 64;
+    const holes = [[24, 15], [32, 13], [40, 17], [20, 24], [28, 22], [36, 24], [24, 32], [32, 31]]
+      .map(([hx, hy]) => `<circle cx="${hx}" cy="${hy}" r="2.2"/>`).join('');
+    return `<g transform="translate(${x} ${y}) rotate(${rotate}) scale(${s}) translate(-32 -32)">
+      <rect x="27" y="40" width="10" height="22" rx="4" fill="${c.handle || c.head}"/>
+      <ellipse cx="32" cy="24" rx="20" ry="22" fill="${c.head}"/>
+      <g fill="${c.holes}" opacity="0.65">${holes}</g></g>`;
+  }
+
+  function ballArt(x, y, r, c) {
+    return `<g><circle cx="${x}" cy="${y}" r="${r}" fill="${c.ball}" stroke="${c.stroke}" stroke-width="${Math.max(1, r / 6)}"/>
+      <path d="M${x - r * 0.75} ${y - r * 0.45} C ${x - r * 0.1} ${y - r * 0.2} ${x + r * 0.2} ${y + r * 0.3} ${x + r * 0.3} ${y + r * 0.95}
+        M${x + r * 0.1} ${y - r * 0.95} C ${x + r * 0.25} ${y - r * 0.4} ${x + r * 0.6} ${y - r * 0.1} ${x + r * 0.97} ${y - r * 0.05}"
+        fill="none" stroke="${c.stroke}" stroke-width="${Math.max(1, r / 7)}" opacity="0.55"/></g>`;
+  }
+
+  // Due racchette incrociate con la pallina sopra.
+  function crossedArt(cx, cy, size, c) {
+    return `${racketArt(cx - size * 0.16, cy + size * 0.06, size * 0.78, -32, c)}
+      ${racketArt(cx + size * 0.16, cy + size * 0.06, size * 0.78, 32, c)}
+      ${ballArt(cx, cy - size * 0.36, size * 0.13, c)}`;
+  }
+
+  // Tutti i turni del tabellone, anche quelli non ancora creati (con i posti "Vincente ...").
+  function bracketModel() {
+    const ko = t.knockout;
+    const seedNo = (id) => ko.seeds.indexOf(id) + 1;
+    const rounds = [];
+    let alive = 0;
+    for (let r = 0; r < ko.total; r++) {
+      const entering = ko.seeds.filter((id) => ko.entry[id] === r).sort((x, y) => seedNo(x) - seedNo(y));
+      const real = ko.rounds[r];
+      let matches;
+      if (real) {
+        matches = real.matches.map((m) => ({ m, a: m.a, b: m.b }));
+      } else {
+        // Le coppie che entrano sono sempre meglio classificate dei vincenti del turno prima:
+        // stanno in cima, i posti dei vincenti in fondo (la migliore contro la peggiore).
+        const list = entering.concat(Array(alive).fill(null));
+        matches = [];
+        for (let i = 0; i < list.length / 2; i++) matches.push({ m: null, a: list[i], b: list[list.length - 1 - i] });
+      }
+      rounds.push({ name: C.roundName(ko.total, r), prev: r ? rounds[r - 1].name : '', matches });
+      alive = matches.length;
+    }
+    return rounds;
+  }
+
+  // Primo "turno sui campi" di ogni turno del tabellone, dopo la fine dei gironi (per gli orari).
+  function koStartSlots() {
+    const perCourt = {};
+    t.groups.forEach((g) => {
+      perCourt[g.court] = (perCourt[g.court] || 0) + t.groupMatches.filter((m) => m.groupId === g.id).length;
+    });
+    let slot = Math.max(0, ...Object.values(perCourt));
+    return bracketModel().map((r) => {
+      const first = slot;
+      slot += Math.ceil(r.matches.length / t.courts);
+      return first;
+    });
+  }
+
+  // Il tabellone intero come immagine SVG (orizzontale, con titolo e grafiche padel).
+  function bracketSVG() {
+    const ko = t.knockout;
+    const rounds = bracketModel();
+    const seedNo = (id) => ko.seeds.indexOf(id) + 1;
+    const champ = C.champion(t);
+    const slots = koStartSlots();
+    const start = toMin(t.settings.startTime);
+    const min = t.settings.matchMinutes || 30;
+    const W = 250, G = 40, BOXH = 60, VG = 30, PAD = 32, HEAD = 96, TOP = HEAD + 58;
+    const maxM = Math.max(1, ...rounds.map((r) => r.matches.length));
+    const colH = Math.max(maxM * (BOXH + VG), 240);
+    const cols = rounds.length + 1;
+    const width = PAD * 2 + cols * W + (cols - 1) * G;
+    const height = TOP + colH + PAD;
+    const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+    const o = [];
+
+    o.push(`<rect width="${width}" height="${height}" fill="${SHEET.bg}"/>`);
+    // Testata blu con le linee del campo, racchette e palline.
+    o.push(`<rect width="${width}" height="${HEAD}" fill="url(#hdr)"/>`);
+    o.push(`<g fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2">
+      <rect x="10" y="10" width="${width - 20}" height="${HEAD - 20}"/>
+      <line x1="${width / 2}" y1="10" x2="${width / 2}" y2="${HEAD - 10}"/>
+      <line x1="${width * 0.2}" y1="10" x2="${width * 0.2}" y2="${HEAD - 10}"/>
+      <line x1="${width * 0.8}" y1="10" x2="${width * 0.8}" y2="${HEAD - 10}"/>
+      <line x1="${width * 0.2}" y1="${HEAD / 2}" x2="${width * 0.8}" y2="${HEAD / 2}"/></g>`);
+    o.push(crossedArt(PAD + 34, HEAD / 2 + 6, 62, { head: '#ffffff', holes: SHEET.navy, ball: SHEET.ball, stroke: SHEET.navy }));
+    o.push(`<text x="${PAD + 84}" y="${HEAD / 2 - 2}" class="t1">${esc(cut(t.name, 60))}</text>`);
+    o.push(`<text x="${PAD + 84}" y="${HEAD / 2 + 24}" class="t2">Tabellone${t.date ? ' · ' + formatDate(t.date) : ''} · ${ko.seeds.length} coppie</text>`);
+    o.push(`<text x="${width - PAD}" y="${HEAD / 2 + 8}" class="brand" text-anchor="end">DF PADEL CUP</text>`);
+    o.push(ballArt(width - PAD - 172, HEAD / 2 + 1, 11, { ball: SHEET.ball, stroke: SHEET.navy }));
+
+    rounds.forEach((r, ri) => {
+      const x = PAD + ri * (W + G);
+      o.push(`<text x="${x}" y="${TOP - 26}" class="rh">${esc(r.name.toUpperCase())}</text>`);
+      o.push(`<text x="${x}" y="${TOP - 8}" class="rt">ore ${fmtTime(start + slots[ri] * min)} · ${r.matches.length} ${r.matches.length === 1 ? 'partita' : 'partite'}</text>`);
+      const sp = colH / r.matches.length;
+      r.matches.forEach((mm, i) => {
+        const y = TOP + sp * i + (sp - BOXH) / 2;
+        const w = mm.m ? C.matchWinner(mm.m) : null;
+        const sets = mm.m ? (mm.m.sets || []).filter((s) => s[0] != null && s[1] != null) : [];
+        // Collegamenti verso il turno successivo.
+        {
+          o.push(`<line x1="${x + W}" y1="${y + BOXH / 2}" x2="${x + W + G / 2}" y2="${y + BOXH / 2}" stroke="${SHEET.line}" stroke-width="2"/>`);
+        }
+        if (ri > 0) {
+          o.push(`<line x1="${x - G / 2}" y1="${y + BOXH / 2}" x2="${x}" y2="${y + BOXH / 2}" stroke="${SHEET.line}" stroke-width="2"/>`);
+        }
+        o.push(`<rect x="${x}" y="${y}" width="${W}" height="${BOXH}" rx="10" fill="${SHEET.box}" stroke="${SHEET.line}" stroke-width="1.5"/>`);
+        const row = (id, side, yy) => {
+          if (!id) {
+            return `<text x="${x + 14}" y="${yy + 20}" class="ph">${r.prev ? 'Vincente ' + esc(r.prev.toLowerCase()) : 'Da definire'}</text>`;
+          }
+          const win = w === id, lose = w && w !== id;
+          let s = '';
+          if (win) s += `<rect x="${x + 1}" y="${yy + 1}" width="${W - 2}" height="${BOXH / 2 - 2}" rx="9" fill="${SHEET.soft}"/>`;
+          s += `<circle cx="${x + 17}" cy="${yy + BOXH / 4}" r="10.5" fill="${win ? SHEET.ball : '#ffffff'}" stroke="${win ? SHEET.ball : SHEET.line}"/>`;
+          s += `<text x="${x + 17}" y="${yy + BOXH / 4 + 4}" class="seed" text-anchor="middle">${seedNo(id)}</text>`;
+          s += `<text x="${x + 34}" y="${yy + BOXH / 4 + 5}" class="nm${win ? ' win' : lose ? ' lose' : ''}">${esc(cut(C.teamName(TM[id]), sets.length > 1 ? 21 : 26))}</text>`;
+          sets.forEach((st, k) => {
+            s += `<text x="${x + W - 12 - (sets.length - 1 - k) * 20}" y="${yy + BOXH / 4 + 5}" class="sc${win ? ' win' : ''}" text-anchor="end">${st[side === 'a' ? 0 : 1]}</text>`;
+          });
+          return s;
+        };
+        o.push(row(mm.a, 'a', y));
+        o.push(`<line x1="${x + 8}" y1="${y + BOXH / 2}" x2="${x + W - 8}" y2="${y + BOXH / 2}" stroke="${SHEET.line}"/>`);
+        o.push(row(mm.b, 'b', y + BOXH / 2));
+        if (mm.m) o.push(`<text x="${x + 4}" y="${y + BOXH + 15}" class="ct">Campo ${mm.m.court}</text>`);
+      });
+    });
+
+    // Colonna dei vincitori con racchette e pallina.
+    const cx = PAD + rounds.length * (W + G);
+    const cy = TOP + colH / 2;
+    o.push(`<line x1="${cx - G / 2}" y1="${cy}" x2="${cx}" y2="${cy}" stroke="${SHEET.line}" stroke-width="2"/>`);
+    o.push(`<rect x="${cx}" y="${cy - 80}" width="${W}" height="160" rx="16" fill="url(#hdr)"/>`);
+    o.push(crossedArt(cx + W / 2, cy - 34, 64, { head: '#ffffff', holes: SHEET.navy, ball: SHEET.ball, stroke: SHEET.navy }));
+    o.push(`<text x="${cx + W / 2}" y="${cy + 22}" class="wl" text-anchor="middle">VINCITORI</text>`);
+    o.push(`<text x="${cx + W / 2}" y="${cy + 52}" class="wn" text-anchor="middle">${champ ? esc(cut(C.teamName(TM[champ]), 22)) : '?'}</text>`);
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Tabellone ${esc(t.name)}">
+      <defs>
+        <linearGradient id="hdr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${SHEET.navy}"/><stop offset="1" stop-color="#2a6fd4"/></linearGradient>
+        <style>
+          text { font-family: 'Barlow', 'Segoe UI', Roboto, Arial, sans-serif; }
+          .t1 { font-family: 'Barlow Condensed', 'Barlow', Arial, sans-serif; font-size: 30px; font-weight: 800; fill: #ffffff; }
+          .t2 { font-size: 15px; fill: #ffffff; opacity: 0.85; }
+          .brand { font-family: 'Barlow Condensed', 'Barlow', Arial, sans-serif; font-size: 22px; font-weight: 800; fill: ${SHEET.ball}; letter-spacing: 1px; }
+          .rh { font-family: 'Barlow Condensed', 'Barlow', Arial, sans-serif; font-size: 17px; font-weight: 800; fill: ${SHEET.blue}; letter-spacing: 0.5px; }
+          .rt { font-size: 12px; fill: ${SHEET.muted}; }
+          .nm { font-size: 14px; fill: ${SHEET.ink}; }
+          .nm.win { font-weight: 700; fill: ${SHEET.blue}; }
+          .nm.lose { fill: #97a3b6; }
+          .ph { font-size: 13px; font-style: italic; fill: #9aa6b8; }
+          .seed { font-size: 11px; font-weight: 700; fill: ${SHEET.ink}; }
+          .sc { font-size: 15px; font-weight: 700; fill: ${SHEET.muted}; }
+          .sc.win { fill: ${SHEET.blue}; }
+          .ct { font-size: 11px; fill: ${SHEET.muted}; }
+          .wl { font-size: 13px; font-weight: 700; fill: #ffffff; letter-spacing: 2px; }
+          .wn { font-family: 'Barlow Condensed', 'Barlow', Arial, sans-serif; font-size: 22px; font-weight: 800; fill: ${SHEET.ball}; }
+        </style>
+      </defs>${o.join('')}</svg>`;
+    return { svg, w: width, h: height };
+  }
+
+  // Stampa del tabellone in orizzontale: su una pagina (rimpicciolito) o su più fogli.
+  function printBracket(mode) {
+    ui.koView = 'full';
+    render();
+    const style = document.createElement('style');
+    style.id = 'print-page';
+    style.textContent = '@page { size: A4 landscape; margin: 8mm; }';
+    document.head.appendChild(style);
+    const cls = mode === 'fit' ? 'print-ko-fit' : 'print-ko-multi';
+    document.body.classList.add(cls);
+    const cleanup = () => {
+      style.remove();
+      document.body.classList.remove(cls);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  }
+
+  // Immagine orizzontale del tabellone: condivisa (WhatsApp dal telefono) o scaricata.
+  async function shareBracket() {
+    const { svg, w, h } = bracketSVG();
+    // Sempre in orizzontale: si allarga solo se il tabellone è più alto del formato A4 orizzontale.
+    const M = 24;
+    let cw = w + 2 * M, ch = h + 2 * M;
+    if (ch * Math.SQRT2 > cw) cw = Math.round(ch * Math.SQRT2);
+    const scale = Math.min(2, 4096 / Math.max(cw, ch));
+    const img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(cw * scale);
+    canvas.height = Math.round(ch * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, ((cw - w) / 2) * scale, ((ch - h) / 2) * scale, w * scale, h * scale);
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+    const slug = (t.name || 'torneo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'torneo';
+    const file = new File([blob], `tabellone-${slug}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: `Tabellone ${t.name}`, text: `Tabellone ${t.name}` });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // condivisione annullata
+      }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Immagine del tabellone scaricata: puoi inviarla su WhatsApp');
   }
 
   /* ------------------------------------------------------------- calendario */
@@ -740,14 +1011,27 @@
 
     // Tabellone: chi entra in ogni turno e a che ora.
     const ord = (x) => `${x}ª`;
+    // Fasce della classifica generale: prime dei gironi, seconde, terze, quarte.
+    const bands = [];
+    let edge = 0;
+    ['prime', 'seconde', 'terze', 'quarte'].forEach((label, i) => {
+      const k = s.sizes.filter((x) => x > i).length;
+      if (k) { bands.push({ label, from: edge + 1, to: edge + k }); edge += k; }
+    });
+    const bandText = (from, to) => {
+      const inside = bands.filter((bd) => bd.from >= from && bd.to <= to);
+      if (!inside.length || inside[0].from !== from || inside[inside.length - 1].to !== to) return '';
+      const names = inside.map((bd) => bd.label);
+      return ` (le ${names.length > 1 ? names.slice(0, -1).join(', ') + ' e le ' + names[names.length - 1] : names[0]} dei gironi)`;
+    };
     let slot = s.groupSlots;
     const rounds = s.rounds.map((r) => {
       const who = [];
       if (r.enter) {
         const [from, to] = r.enter;
-        who.push(from === to ? `entra la ${ord(from)}`
+        who.push((from === to ? `entra la ${ord(from)}`
           : from === 1 ? `entrano le prime ${to}`
-            : `entrano le coppie dalla ${ord(from)} alla ${ord(to)}`);
+            : `entrano le coppie dalla ${ord(from)} alla ${ord(to)}`) + bandText(from, to));
       }
       if (r.winners) who.push(`${r.winners} ${r.winners === 1 ? 'vincente' : 'vincenti'} del turno prima`);
       const row = `<li><span class="cal-tag">${at(slot)}</span><strong>${r.name}</strong>
@@ -991,6 +1275,20 @@
       }[mode] || 'Gironi creati con le teste di serie');
     },
 
+    'ko-view': (el) => { ui.koView = el.dataset.v; render(); },
+    'ko-zoom': (el) => {
+      const sheet = view.querySelector('.ko-sheet');
+      const wrap = view.querySelector('.ko-sheet-wrap');
+      const cur = ui.koZoom || (wrap && sheet ? wrap.clientWidth / Number(sheet.dataset.w) : 1);
+      if (el.dataset.z === 'fit') ui.koZoom = 0;
+      else if (el.dataset.z === 'in') ui.koZoom = Math.min(3, cur * 1.25);
+      else ui.koZoom = Math.max(0.2, cur / 1.25);
+      render();
+    },
+    'ko-print': (el) => printBracket(el.dataset.mode),
+    'ko-share': () => {
+      shareBracket().catch(() => toast('Non sono riuscito a creare l\'immagine del tabellone', true));
+    },
     'toggle-edit': () => { ui.editGroups = !ui.editGroups; ui.swapPick = null; render(); },
     'court-filter': (el) => { ui.court = parseInt(el.dataset.court, 10) || 0; render(); },
 

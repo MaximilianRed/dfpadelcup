@@ -110,6 +110,11 @@
 
     /* --- tabellone */
     'badge-ko': 'Coppie ammesse al tabellone.',
+    'ko-view-full': 'Il tabellone intero, dal primo turno alla finale, con i posti ancora da definire. Si può ingrandire, stampare e condividere.',
+    'ko-view-edit': 'Le partite del tabellone con le caselle per inserire i punteggi.',
+    'ko-zoom': 'Ingrandisci o rimpicciolisci il tabellone; «Adatta» lo mostra intero nello schermo.',
+    'action:ko-print': 'Stampa il tabellone in orizzontale. Nella finestra di stampa puoi scegliere la stampante oppure «Salva come PDF».',
+    'action:ko-share': 'Crea un\'immagine orizzontale del tabellone: dal telefono si apre la condivisione (WhatsApp), dal computer viene scaricata.',
     'champion': 'Vincitori del torneo!',
     'round-title': 'Turno del tabellone. In ogni turno la coppia meglio classificata affronta la peggiore rimasta.',
     'pending': 'Questo turno si crea da solo quando tutte le partite del turno precedente hanno un vincitore.',

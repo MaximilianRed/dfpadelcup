@@ -296,11 +296,15 @@ main {
 }
 .card h2::before {
   content: "";
-  width: 5px;
-  height: 1.1em;
-  border-radius: 3px;
-  background: var(--ball);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at -12% 50%, transparent 58%, rgba(255, 255, 255, 0.85) 60%, rgba(255, 255, 255, 0.85) 68%, transparent 70%),
+    radial-gradient(circle at 112% 50%, transparent 58%, rgba(255, 255, 255, 0.85) 60%, rgba(255, 255, 255, 0.85) 68%, transparent 70%),
+    var(--ball);
+  box-shadow: inset -2px -2px 0 rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 .card h3 { margin: 0; font-size: 1.2rem; }
 
@@ -1154,6 +1158,22 @@ tr.band td {
 }
 .pending ul { margin: 6px 0 0; padding-left: 18px; }
 
+/* Tabellone completo: un foglio unico da ingrandire, stampare o condividere */
+.ko-sheet-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  max-height: 78vh;
+  -webkit-overflow-scrolling: touch;
+}
+.ko-sheet { width: 100%; }
+.ko-sheet svg { display: block; width: 100%; height: auto; }
+.zoom { display: inline-flex; align-items: center; gap: 4px; }
+.zoom-val { min-width: 54px; text-align: center; font-weight: 700; font-size: 0.85rem; color: var(--muted); }
+.champion svg.crossed { width: 64px; height: 58px; flex-shrink: 0; }
+
 /* =====================================================================
    IMPOSTAZIONI
    ===================================================================== */
@@ -1313,6 +1333,8 @@ tr.band td {
 .court .c-line { stroke: #fff; stroke-width: 2; fill: none; opacity: 0.85; }
 .court .c-net { stroke: #fff; stroke-width: 3; }
 .court .c-ball { fill: var(--ball); }
+.court .c-racket { fill: #ffffff; }
+.court .c-holes { fill: var(--accent); opacity: 0.6; }
 
 #toast {
   position: fixed;
@@ -1373,6 +1395,16 @@ tr.band td {
 }
 
 @media print {
+  body.print-ko-fit .hero, body.print-ko-multi .hero,
+  body.print-ko-fit main > :not(.ko-sheet-wrap), body.print-ko-multi main > :not(.ko-sheet-wrap) { display: none !important; }
+  body.print-ko-fit .ko-sheet-wrap, body.print-ko-multi .ko-sheet-wrap {
+    overflow: visible; max-height: none; border: 0; border-radius: 0; box-shadow: none;
+  }
+  body.print-ko-fit .ko-sheet, body.print-ko-multi .ko-sheet { width: auto !important; }
+  /* Una pagina A4 orizzontale (297 x 210 mm meno i margini): il tabellone si adatta. */
+  body.print-ko-fit .ko-sheet svg { width: 281mm; height: 192mm; }
+  /* Più fogli: largo quanto la pagina, in altezza continua sui fogli successivi. */
+  body.print-ko-multi .ko-sheet svg { width: 281mm; height: auto; }
   .tabs, .toolbar, .no-print, #toast, #help-tip { display: none !important; }
   .hero { background: none; color: #000; }
   .court-deco { display: none; }
