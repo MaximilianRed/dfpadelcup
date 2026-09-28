@@ -11,8 +11,8 @@
 
   // Versione del programma e data dell'aggiornamento (AAAA-MM-GG): aggiornale a ogni rilascio
   // (vedi README, "Versioni").
-  const VERSION = '1.6.1';
-  const VERSION_DATE = '2026-09-27';
+  const VERSION = '1.7.0';
+  const VERSION_DATE = '2026-09-28';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -36,10 +36,47 @@
     return a;
   }
 
-  function newTournament({ name, date, courts, count }) {
+  /* ---------------------------------------------------------- TIPI DI TORNEO */
+
+  // Un tipo di torneo è un pacchetto di parametri già pronti. Per aggiungerne uno nuovo basta
+  // un'altra voce qui: nome, descrizione e le impostazioni che imposta (vedi newTournament).
+  const TOURNAMENT_TYPES = {
+    dfcup: {
+      name: 'DF Padel Cup',
+      desc: 'Dopo i gironi le prime 4 della classifica passano direttamente ai quarti; le altre si giocano l\'ingresso nei turni prima. Un set; in classifica il 7 conta come 6 (7-6 → 6-6, 7-5 → 6-5).',
+      settings: { scoreFormat: '1set', sevenAsSix: true, crossGroup: 'assoluto', maxBracket: 0, bracketDirect: null, bracketEntry: null },
+    },
+    classico: {
+      name: 'Classico',
+      desc: 'Tutte le coppie passano dai gironi al tabellone e giocano dal primo turno: nessuna entra direttamente più avanti. Un set; i game contano come scritti.',
+      settings: { scoreFormat: '1set', sevenAsSix: false, crossGroup: 'assoluto', maxBracket: 0, bracketDirect: 0, bracketEntry: null },
+    },
+  };
+
+  function tournamentType(t) {
+    const id = t.settings && t.settings.type;
+    return TOURNAMENT_TYPES[id] ? id : 'dfcup';
+  }
+
+  // Applica i parametri di un tipo di torneo.
+  function applyType(t, typeId) {
+    const type = TOURNAMENT_TYPES[typeId] || TOURNAMENT_TYPES.dfcup;
+    Object.assign(t.settings, type.settings, { type: TOURNAMENT_TYPES[typeId] ? typeId : 'dfcup' });
+  }
+
+  // Parametri del torneo diversi da quelli del suo tipo ("personalizzato").
+  function typeChanges(t) {
+    const preset = TOURNAMENT_TYPES[tournamentType(t)].settings;
+    return Object.keys(preset).filter((k) => {
+      const a = t.settings[k], b = preset[k];
+      return !(a === b || (a == null && b == null) || (k === 'maxBracket' && !a && !b));
+    });
+  }
+
+  function newTournament({ name, date, courts, count, type }) {
     const teams = [];
     for (let i = 0; i < (parseInt(count, 10) || 0); i++) teams.push(defaultTeam(i + 1));
-    return {
+    const t = {
       version: 1,
       id: uid('t'),
       name: name || 'Torneo',
@@ -56,6 +93,7 @@
         groupCount: 0, // 0 = automatico (un girone per campo quando si può)
         matchMinutes: 30, // durata stimata di una partita, per gli orari del calendario
         startTime: '09:00',
+        type: 'dfcup', // tipo di torneo (vedi TOURNAMENT_TYPES)
       },
       teams,
       groups: [],
@@ -64,6 +102,8 @@
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
+    applyType(t, type || 'dfcup');
+    return t;
   }
 
   function clampCourts(c) {
@@ -436,6 +476,7 @@
     if (t.settings.groupCount === undefined) t.settings.groupCount = 0;
     if (!t.settings.matchMinutes) t.settings.matchMinutes = 30;
     if (!t.settings.startTime) t.settings.startTime = '09:00';
+    if (!t.settings.type) t.settings.type = 'dfcup';
     if (t.settings.sevenAsSix === undefined) {
       // Regola introdotta nella 1.6: ricalcola i game delle partite già giocate.
       t.settings.sevenAsSix = true;
@@ -756,7 +797,7 @@
   }
 
   return {
-    VERSION, VERSION_DATE, LETTERS, newTournament, newTeam, teamName, clampCourts,
+    VERSION, VERSION_DATE, LETTERS, TOURNAMENT_TYPES, tournamentType, applyType, typeChanges, newTournament, newTeam, teamName, clampCourts,
     isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
     groupSizes, groupRange, tournamentSizes, describeSizes, describeGroups, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
     FORMATS, sevenCountsAsSix, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,

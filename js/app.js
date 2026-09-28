@@ -184,7 +184,10 @@
         <label>Nome<input name="name" maxlength="80" placeholder="Es. Torneo d'autunno" value="${esc(ui.newName || '')}"></label>
         <label>Data<input name="date" type="date" value="${esc(ui.newDate || today)}"></label>
       </form>
-      <p class="hint">Imposta i numeri con − e +: qui sotto vedi subito come si dividono le coppie e gli orari.</p>
+      <h3 class="plan-sub" data-help-key="sec-type">Tipo di torneo</h3>
+      ${typeCards('new', planOf('new').type, false)}
+      <h3 class="plan-sub">Numeri</h3>
+      <p class="hint" style="margin-top:0">Imposta i numeri con − e +: qui sotto vedi subito come si dividono le coppie e gli orari.</p>
       ${planSteppers('new')}
     </section>
     <section class="card">
@@ -921,7 +924,7 @@
   // Numeri del pianificatore: per il nuovo torneo ('new') oppure per il torneo aperto ('t').
   function planOf(target) {
     if (target === 'new') {
-      if (!ui.newSim) ui.newSim = { n: 16, courts: 4, groups: 0, minutes: 30, start: '09:00', ko: { size: 0, direct: null, entry: null } };
+      if (!ui.newSim) ui.newSim = { n: 16, courts: 4, groups: 0, minutes: 30, start: '09:00', type: 'dfcup', ko: presetKo('dfcup') };
       return ui.newSim;
     }
     return {
@@ -929,6 +932,22 @@
       minutes: t.settings.matchMinutes || 30, start: t.settings.startTime || '09:00',
       ko: { size: t.settings.maxBracket || 0, direct: t.settings.bracketDirect, entry: t.settings.bracketEntry },
     };
+  }
+
+  // Parametri del tabellone previsti da un tipo di torneo.
+  function presetKo(typeId) {
+    const st = C.TOURNAMENT_TYPES[typeId].settings;
+    return { size: st.maxBracket || 0, direct: st.bracketDirect, entry: st.bracketEntry };
+  }
+
+  // Schede per scegliere il tipo di torneo (un clic imposta tutti i suoi parametri).
+  function typeCards(target, current, customized) {
+    return `<div class="type-cards" role="group" aria-label="Tipo di torneo">${Object.entries(C.TOURNAMENT_TYPES).map(([id, ty]) => `
+      <button type="button" class="type-card ${id === current ? 'active' : ''}" data-action="set-type" data-target="${target}" data-id="${id}" data-help-key="type-card">
+        <svg class="type-art" viewBox="0 0 100 90" aria-hidden="true">${crossedArt(50, 52, 74, { head: id === current ? '#1f5fbf' : '#8fa8cc', holes: '#ffffff', ball: '#d4f53c', stroke: '#173f80' })}</svg>
+        <span class="type-text"><strong>${ty.name}</strong>${id === current && customized ? ' <span class="badge" data-help-key="type-custom">personalizzato</span>' : ''}
+          <span class="muted">${ty.desc}</span></span>
+      </button>`).join('')}</div>`;
   }
 
   // Gironi scelti (0 = quello consigliato).
@@ -1013,17 +1032,18 @@
     const bandText = (from, to) => {
       const inside = bands.filter((bd) => bd.from >= from && bd.to <= to);
       if (!inside.length || inside[0].from !== from || inside[inside.length - 1].to !== to) return '';
-      const names = inside.map((bd) => bd.label);
-      return ` (le ${names.length > 1 ? names.slice(0, -1).join(', ') + ' e le ' + names[names.length - 1] : names[0]} dei gironi)`;
+      const names = inside.map((bd) => 'le ' + bd.label);
+      return ` (${names.length > 1 ? names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1] : names[0]} dei gironi)`;
     };
     let slot = s.groupSlots;
     const rounds = s.rounds.map((r) => {
       const who = [];
       if (r.enter) {
         const [from, to] = r.enter;
-        who.push((from === to ? `entra la ${ord(from)}`
-          : from === 1 ? `entrano le prime ${to}`
-            : `entrano le coppie dalla ${ord(from)} alla ${ord(to)}`) + bandText(from, to));
+        who.push(from === 1 && to === s.bracket.size ? `entrano tutte le ${to} coppie`
+          : (from === to ? `entra la ${ord(from)}`
+            : from === 1 ? `entrano le prime ${to}`
+              : `entrano le coppie dalla ${ord(from)} alla ${ord(to)}`) + bandText(from, to));
       }
       if (r.winners) who.push(`${r.winners} ${r.winners === 1 ? 'vincente' : 'vincenti'} del turno prima`);
       const row = `<li><span class="cal-tag">${at(slot)}</span><strong>${r.name}</strong>
@@ -1035,9 +1055,15 @@
     const entryOpts = C.bracketEntryOptions(b.size, Math.max(1, b.direct));
     const ENTRY = { 4: 'Semifinali', 8: 'Quarti', 16: 'Ottavi', 32: 'Sedicesimi', 64: 'Trentaduesimi' };
     const pow2 = (x) => x > 0 && (x & (x - 1)) === 0;
+    // "le prime 2 di ogni girone" quando il numero coincide con una fascia della classifica.
+    const sizeBand = (n) => {
+      const i = bands.findIndex((bd) => bd.to === n);
+      if (i < 0 || bands[i].to - bands[i].from + 1 !== s.groups) return '';
+      return ` <small>${i === 0 ? 'la prima' : `le prime ${i + 1}`} di ogni girone</small>`;
+    };
     const koControls = `
       <div class="steppers">
-        ${stepper(target, 'kosize', 'Coppie nel tabellone', b.size === p.n ? `${b.size} <small>tutte</small>` : b.size, 'ko-size')}
+        ${stepper(target, 'kosize', 'Coppie nel tabellone', b.size === p.n ? `${b.size} <small>tutte</small>` : `${b.size}${sizeBand(b.size)}`, 'ko-size')}
         ${stepper(target, 'direct', 'Passano direttamente', b.direct, 'ko-direct')}
       </div>
       ${b.direct && entryOpts.length ? `<div class="option-row" data-help-key="ko-entry">
@@ -1095,6 +1121,9 @@
     ].filter(Boolean);
 
     return `
+      <h3 class="plan-sub" data-help-key="sec-type">Tipo di torneo</h3>
+      ${typeCards('t', C.tournamentType(t), C.typeChanges(t).length > 0)}
+      <h3 class="plan-sub">Regole in vigore</h3>
       <ol class="rules-list" data-help-key="rules-summary">${rules.map((r) => `<li>${r}</li>`).join('')}</ol>
       <div class="option-row" data-help-key="opt-format">
         <span class="option-label">Formato delle partite</span>
@@ -1412,6 +1441,24 @@
       const bad = t.groupMatches.concat(t.knockout ? t.knockout.rounds.flatMap((r) => r.matches) : []).filter((m) => m.bad).length;
       toast(bad ? `Formato cambiato: ${bad} ${bad === 1 ? 'risultato da correggere' : 'risultati da correggere'}` : 'Formato: ' + C.FORMATS[el.dataset.id].label, !!bad);
     },
+    'set-type': (el) => {
+      const id = el.dataset.id;
+      if (el.dataset.target === 'new') {
+        const p = planOf('new');
+        p.type = id;
+        p.ko = presetKo(id);
+        render();
+        return;
+      }
+      if (C.tournamentType(t) === id && !C.typeChanges(t).length) return;
+      const name = C.TOURNAMENT_TYPES[id].name;
+      if (!confirm(`Applicare le regole del tipo «${name}»? Le modifiche fatte a mano alle regole verranno sostituite.`)) return;
+      C.applyType(t, id);
+      C.revalidateScores(t);
+      persist();
+      render();
+      toast(t.knockout ? `Tipo «${name}» applicato: rigenera il tabellone dalla Classifica per usarlo` : `Tipo «${name}» applicato`);
+    },
     'set-cross': (el) => { t.settings.crossGroup = el.dataset.id; persist(); render(); },
     'set-seven': (el) => {
       t.settings.sevenAsSix = el.dataset.id === 'on';
@@ -1586,7 +1633,7 @@
         return;
       }
       const { autoG, chosen } = planChoice(p);
-      t = C.newTournament({ name: (data.name || '').trim() || 'Torneo', date: data.date, courts: p.courts, count: p.n });
+      t = C.newTournament({ name: (data.name || '').trim() || 'Torneo', date: data.date, courts: p.courts, count: p.n, type: p.type });
       t.settings.groupCount = chosen === autoG ? 0 : chosen;
       t.settings.matchMinutes = p.minutes;
       t.settings.startTime = p.start;

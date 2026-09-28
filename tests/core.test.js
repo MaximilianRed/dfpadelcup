@@ -500,6 +500,33 @@ test('scambio coppie tra gironi', () => {
   assert.strictEqual(t.groupMatches.length, 12);
 });
 
+test('tipi di torneo: DF Padel Cup e Classico', () => {
+  const df = C.newTournament({ name: 'a', count: 12, courts: 4 });
+  assert.strictEqual(C.tournamentType(df), 'dfcup');
+  assert.strictEqual(df.settings.sevenAsSix, true);
+  assert.deepStrictEqual(C.typeChanges(df), []);
+  const cl = C.newTournament({ name: 'b', count: 12, courts: 4, type: 'classico' });
+  assert.strictEqual(C.tournamentType(cl), 'classico');
+  assert.strictEqual(cl.settings.sevenAsSix, false);
+  // Classico: nessuna coppia entra direttamente; con 12 coppie le prime 4 saltano solo il primo turno.
+  cl.teams.forEach((x, i) => { x.p1 = 'P' + i; x.p2 = 'Q' + i; });
+  C.buildGroups(cl); playGroups(cl); C.createKnockout(cl);
+  const p = C.bracketPlan(12, cl.settings.bracketDirect, cl.settings.bracketEntry);
+  assert.strictEqual(p.direct, 0);
+  assert.strictEqual(C.roundName(p.total, 0), 'Ottavi di finale');
+  assert.deepStrictEqual(p.entry.slice(0, 5), [1, 1, 1, 1, 0]);
+  // Cambiare un parametro rende il torneo "personalizzato"; riapplicare il tipo lo riporta com'era.
+  cl.settings.sevenAsSix = true;
+  assert.deepStrictEqual(C.typeChanges(cl), ['sevenAsSix']);
+  C.applyType(cl, 'classico');
+  assert.deepStrictEqual(C.typeChanges(cl), []);
+  // Tornei salvati prima dei tipi: diventano DF Padel Cup.
+  const old = C.newTournament({ name: 'c', count: 4 });
+  delete old.settings.type;
+  C.normalize(old);
+  assert.strictEqual(old.settings.type, 'dfcup');
+});
+
 test('versione e data di aggiornamento', () => {
   assert.match(C.VERSION, /^\d+\.\d+\.\d+$/);
   assert.match(C.VERSION_DATE, /^\d{4}-\d{2}-\d{2}$/);

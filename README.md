@@ -4,7 +4,12 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
 
 ## Come si usa
 
-1. **Tornei → Nuovo torneo**: nome e data, poi con − e + coppie, campi, minuti a partita e ora di inizio.
+1. **Tornei → Nuovo torneo**: nome, data e **tipo di torneo**:
+   - **DF Padel Cup**: le prime 4 della classifica passano direttamente ai quarti; in classifica il 7 conta come 6;
+   - **Classico**: tutte le coppie passano dai gironi al tabellone e giocano dal primo turno; game come scritti.
+
+   Il tipo imposta tutti i parametri, che si possono poi ritoccare (compare «personalizzato»). Nuovi tipi si
+   aggiungono in `js/core.js`, `TOURNAMENT_TYPES`. Poi con − e + coppie, campi, minuti a partita e ora di inizio.
    Subito sotto compaiono la **scelta dei gironi** (tutte le divisioni possibili a confronto, con quella
    consigliata) e i **tempi**: occupazione dei campi, fine gironi, fine torneo, attese, orari del tabellone.
    *Crea torneo* prepara le righe con nomi di default (Giocatore 1A / Giocatore 1B, ...), così i gironi si
@@ -92,6 +97,8 @@ La versione e la data dell'aggiornamento sono scritte nella testata dell'app e i
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.7.0** (28/09/2026) — Tipi di torneo: DF Padel Cup e Classico, scelti con un clic in Nuovo torneo e
+  nelle regole; "le prime 2 di ogni girone" nel numero di coppie del tabellone.
 - **1.6.1** (27/09/2026) — Data dell'aggiornamento accanto al numero di versione.
 - **1.6.0** — Regole del punteggio scritte per esteso e modificabili (Impostazioni e scheda Coppie);
   regola "il 7 conta come 6" (7-6 → 6-6, 7-5 → 6-5).

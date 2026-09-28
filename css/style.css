@@ -812,6 +812,27 @@ textarea { width: 100%; resize: vertical; }
 .rules-list { margin: 0 0 6px; padding-left: 22px; display: grid; gap: 6px; line-height: 1.45; }
 .rules-list li::marker { color: var(--accent); font-weight: 700; }
 .rules-list strong { color: var(--text); }
+
+/* Tipi di torneo */
+.type-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.type-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-alt);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.type-card:hover { border-color: var(--accent); }
+.type-card.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.type-art { width: 56px; height: 50px; flex-shrink: 0; }
+.type-text strong { font-size: 1.05rem; }
+.type-text .muted { display: block; font-size: 0.85rem; line-height: 1.35; margin-top: 3px; }
 .btn.big { padding: 14px 28px; font-size: 1.1rem; border-radius: 14px; }
 @media (max-width: 560px) { .create-row .btn { width: 100%; } }
 .sim-rounds { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
