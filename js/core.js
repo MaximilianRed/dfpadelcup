@@ -11,7 +11,7 @@
 
   // Versione del programma e data dell'aggiornamento (AAAA-MM-GG): aggiornale a ogni rilascio
   // (vedi README, "Versioni").
-  const VERSION = '1.7.0';
+  const VERSION = '1.8.0';
   const VERSION_DATE = '2026-09-28';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -718,6 +718,28 @@
     return truncated;
   }
 
+  // Scambio manuale di due coppie nel tabellone (per personalizzare gli accoppiamenti).
+  // Solo nello stesso turno e in partite non ancora iniziate. Restituisce true se riuscito.
+  function swapKnockoutTeams(t, idA, idB) {
+    const ko = t.knockout;
+    if (!ko || idA === idB) return false;
+    for (let r = ko.rounds.length - 1; r >= 0; r--) {
+      const ms = ko.rounds[r].matches;
+      const ma = ms.find((m) => m.a === idA || m.b === idA);
+      const mb = ms.find((m) => m.a === idB || m.b === idB);
+      if (!ma && !mb) continue;
+      if (!ma || !mb || hasScore(ma) || hasScore(mb)) return false;
+      if (ma === mb) {
+        [ma.a, ma.b] = [ma.b, ma.a];
+      } else {
+        if (ma.a === idA) ma.a = idB; else ma.b = idB;
+        if (mb.a === idB) mb.a = idA; else mb.b = idA;
+      }
+      return true;
+    }
+    return false;
+  }
+
   function knockoutHasResultsAfter(t, matchId) {
     const ko = t.knockout;
     const r = ko.rounds.findIndex((rd) => rd.matches.some((m) => m.id === matchId));
@@ -804,6 +826,6 @@
     setGroupScore, revalidateScores, normalize, hasScore,
     groupStandings, overallRanking,
     bracketConfig, bracketEntryOptions, bracketPlan, roundName, createKnockout, matchWinner, roundComplete, roundParticipants,
-    advanceKnockout, setKnockoutScore, knockoutHasResultsAfter, champion, indexTeams, shuffle,
+    advanceKnockout, setKnockoutScore, swapKnockoutTeams, knockoutHasResultsAfter, champion, indexTeams, shuffle,
   };
 });

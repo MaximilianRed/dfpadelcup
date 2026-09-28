@@ -527,6 +527,27 @@ test('tipi di torneo: DF Padel Cup e Classico', () => {
   assert.strictEqual(old.settings.type, 'dfcup');
 });
 
+test('tabellone: scambio manuale degli accoppiamenti', () => {
+  const t = makeTournament(12);
+  C.buildGroups(t); playGroups(t); C.createKnockout(t);
+  const [m0, m1] = t.knockout.rounds[0].matches; // 5-12 e 6-11
+  const a = m0.a, b = m1.b;
+  assert.ok(C.swapKnockoutTeams(t, a, b));
+  assert.strictEqual(m0.a, b);
+  assert.strictEqual(m1.b, a);
+  // Con un punteggio già inserito lo scambio non è permesso.
+  C.setKnockoutScore(t, m0.id, [[6, null]]);
+  assert.ok(!C.swapKnockoutTeams(t, m0.b, m1.a));
+  // Coppie che non sono nello stesso turno (le prime 4 entrano ai quarti): non permesso.
+  const top = t.knockout.seeds[0];
+  assert.ok(!C.swapKnockoutTeams(t, top, m1.a));
+  // I turni successivi si creano normalmente con le coppie scambiate.
+  C.setKnockoutScore(t, m0.id, [[6, 2]]);
+  t.knockout.rounds[0].matches.slice(1).forEach((m) => C.setKnockoutScore(t, m.id, [[6, 3]]));
+  assert.strictEqual(t.knockout.rounds.length, 2);
+  assert.ok(t.knockout.rounds[1].matches.some((m) => m.a === b || m.b === b));
+});
+
 test('versione e data di aggiornamento', () => {
   assert.match(C.VERSION, /^\d+\.\d+\.\d+$/);
   assert.match(C.VERSION_DATE, /^\d{4}-\d{2}-\d{2}$/);

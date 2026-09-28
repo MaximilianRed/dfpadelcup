@@ -400,7 +400,9 @@
 
     const team = (id) => `<span class="sb-team ${w === id ? 'win' : ''} ${w && w !== id ? 'lose' : ''}">
         ${seedNo ? `<span class="seed" data-help-key="seed">${seedNo(id)}</span>` : ''}
-        <span class="nm">${name(id)}</span>
+        ${knockout && ui.koSwap && !C.hasScore(m)
+          ? `<button class="swap-btn nm ${ui.koPick === id ? 'picked' : ''}" data-action="ko-swap-pick" data-id="${id}">${name(id)}</button>`
+          : `<span class="nm">${name(id)}</span>`}
         ${m.done && n > 1 ? `<span class="sb-won" data-help-key="sets-won">${id === m.a ? m.sa : m.sb}</span>` : ''}
       </span>`;
 
@@ -552,7 +554,8 @@
       <button class="btn small" data-action="ko-print" data-mode="fit">${ICON.print} Stampa 1 pagina</button>
       <button class="btn small" data-action="ko-print" data-mode="multi">${ICON.print} Stampa su più fogli</button>
       <button class="btn small ball" data-action="ko-share">${ICON.share} Condividi</button>`
-    : `<button class="btn small" data-action="print">${ICON.print} Stampa</button>`}
+    : `<button class="btn small ${ui.koSwap ? 'primary' : ''}" data-action="ko-swap-toggle" data-help-key="ko-swap">${ICON.edit} ${ui.koSwap ? 'Fine modifica' : 'Modifica accoppiamenti'}</button>
+      <button class="btn small" data-action="print">${ICON.print} Stampa</button>`}
     </div>`;
 
     const banner = champ ? `<section class="card champion" data-help-key="champion">
@@ -587,7 +590,10 @@
       alive = (alive + entering.length) / 2;
     }
 
-    return toolbar + banner + `
+    const swapNotice = ui.koSwap ? `<p class="notice">${ui.koPick
+      ? `Hai scelto <strong>${name(ui.koPick)}</strong>: ora clicca la coppia dello stesso turno con cui scambiarla (o di nuovo la stessa per annullare).`
+      : 'Clicca una coppia e poi un\'altra <strong>dello stesso turno</strong> per scambiarle. Si possono spostare solo le partite non ancora iniziate.'}</p>` : '';
+    return toolbar + swapNotice + banner + `
     <div class="bracket">${cols.join('')}</div>
     <p class="hint">Il numero nel cerchio è la posizione nella classifica generale. In ogni turno la coppia meglio classificata affronta la peggiore rimasta.
     Nel tabellone non sono ammessi pareggi.</p>`;
@@ -1357,7 +1363,21 @@
       }[mode] || 'Gironi creati con le teste di serie');
     },
 
-    'ko-view': (el) => { ui.koView = el.dataset.v; render(); },
+    'ko-view': (el) => { ui.koView = el.dataset.v; ui.koSwap = false; ui.koPick = null; render(); },
+    'ko-swap-toggle': () => { ui.koSwap = !ui.koSwap; ui.koPick = null; render(); },
+    'ko-swap-pick': (el) => {
+      const id = el.dataset.id;
+      if (!ui.koPick || ui.koPick === id) { ui.koPick = ui.koPick === id ? null : id; render(); return; }
+      const a = ui.koPick;
+      ui.koPick = null;
+      if (C.swapKnockoutTeams(t, a, id)) {
+        persist();
+        toast(`Scambiate: ${C.teamName(TM[a])} ↔ ${C.teamName(TM[id])}`);
+      } else {
+        toast('Si possono scambiare solo coppie dello stesso turno, in partite non ancora iniziate', true);
+      }
+      render();
+    },
     'ko-zoom': (el) => {
       const sheet = view.querySelector('.ko-sheet');
       const wrap = view.querySelector('.ko-sheet-wrap');

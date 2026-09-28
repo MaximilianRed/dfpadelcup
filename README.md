@@ -35,6 +35,8 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
    da definire), da ingrandire con − / + o «Adatta». Si stampa in orizzontale su **1 pagina** o **su più fogli**
    (stampante o «Salva come PDF») e si **condivide** come immagine orizzontale (WhatsApp dal telefono).
    In *Inserisci risultati* si segnano i punteggi; i turni successivi si creano da soli.
+   Con *Modifica accoppiamenti* l'organizzatore può personalizzare il tabellone: clicca due coppie dello
+   stesso turno per scambiarle (solo partite non ancora iniziate).
 
 In **Impostazioni** si scelgono il tema (Padel, Padel notte, Campo verde, Classico o Automatico),
 la dimensione del testo e se mostrare l'aiuto. Valgono solo per il dispositivo in uso.
@@ -97,6 +99,7 @@ La versione e la data dell'aggiornamento sono scritte nella testata dell'app e i
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.8.0** (28/09/2026) — Accoppiamenti del tabellone modificabili a mano (scambio a due clic).
 - **1.7.0** (28/09/2026) — Tipi di torneo: DF Padel Cup e Classico, scelti con un clic in Nuovo torneo e
   nelle regole; "le prime 2 di ogni girone" nel numero di coppie del tabellone.
 - **1.6.1** (27/09/2026) — Data dell'aggiornamento accanto al numero di versione.
