@@ -1142,6 +1142,7 @@
       '<strong>Classifica del girone</strong>: partite vinte → game vinti → game persi (meno è meglio) → scontro diretto → sorteggio.',
       `<strong>Classifica generale</strong>: prima tutte le prime dei gironi, poi le seconde, le terze e le quarte; dentro ogni fascia partite vinte → game vinti → game persi → sorteggio${avg ? ', in <strong>media per partita giocata</strong> (più equo tra gironi da 3 e da 4)' : ''}.`,
       plan ? `<strong>Tabellone</strong>: ${nb === n ? 'tutte le coppie' : `le prime ${nb} coppie`}${plan.direct ? `; le prime ${plan.direct} entrano direttamente ${ENTRY[plan.entrySize] || ''}` : ''}. In ogni turno la meglio classificata affronta la peggiore rimasta; non sono ammessi pareggi.` : '',
+      s.avoidSameGroup ? '<strong>Stesso girone</strong>: due coppie dello stesso girone non si incontrano nel tabellone finché c\'è un\'alternativa; la meglio classificata ha la priorità e affronta la peggiore di un altro girone.' : '',
     ].filter(Boolean);
 
     return `
@@ -1162,6 +1163,13 @@
           <button class="${seven ? '' : 'active'}" data-action="set-seven" data-id="off" data-help-key="seven-off">Come scritti</button>
         </div>
       </div>`}
+      <div class="option-row" data-help-key="opt-samegroup">
+        <span class="option-label">Coppie dello stesso girone</span>
+        <div class="segmented" role="group" aria-label="Coppie dello stesso girone">
+          <button class="${s.avoidSameGroup ? 'active' : ''}" data-action="set-samegroup" data-id="on" data-help-key="samegroup-on">Non si incontrano</button>
+          <button class="${s.avoidSameGroup ? '' : 'active'}" data-action="set-samegroup" data-id="off" data-help-key="samegroup-off">Nessun vincolo</button>
+        </div>
+      </div>
       <div class="option-row" data-help-key="opt-cross">
         <span class="option-label">Confronto tra gironi da 3 e da 4</span>
         <div class="segmented" role="group" aria-label="Confronto tra gironi">
@@ -1502,6 +1510,12 @@
       persist();
       render();
       toast(t.knockout ? `Tipo «${name}» applicato: rigenera il tabellone dalla Classifica per usarlo` : `Tipo «${name}» applicato`);
+    },
+    'set-samegroup': (el) => {
+      t.settings.avoidSameGroup = el.dataset.id === 'on';
+      persist();
+      render();
+      toast(t.knockout ? 'Vale per i prossimi turni del tabellone (o rigeneralo dalla Classifica)' : 'Regola aggiornata');
     },
     'set-cross': (el) => { t.settings.crossGroup = el.dataset.id; persist(); render(); },
     'set-seven': (el) => {

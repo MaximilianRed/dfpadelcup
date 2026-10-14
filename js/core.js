@@ -44,17 +44,17 @@
     dfcup: {
       name: 'DF Padel Cup',
       desc: 'Dopo i gironi le prime 4 della classifica passano direttamente ai quarti; le altre si giocano l\'ingresso nei turni prima. Un set; in classifica il 7 conta come 6 (7-6 → 6-6, 7-5 → 6-5).',
-      settings: { scoreFormat: '1set', sevenAsSix: true, crossGroup: 'assoluto', maxBracket: 0, bracketDirect: null, bracketEntry: null },
+      settings: { scoreFormat: '1set', sevenAsSix: true, crossGroup: 'assoluto', maxBracket: 0, bracketDirect: null, bracketEntry: null, avoidSameGroup: false },
     },
     classico: {
       name: 'Classico',
       desc: 'Tutte le coppie passano dai gironi al tabellone e giocano dal primo turno: nessuna entra direttamente più avanti. Un set; i game contano come scritti.',
-      settings: { scoreFormat: '1set', sevenAsSix: false, crossGroup: 'assoluto', maxBracket: 0, bracketDirect: 0, bracketEntry: null },
+      settings: { scoreFormat: '1set', sevenAsSix: false, crossGroup: 'assoluto', maxBracket: 0, bracketDirect: 0, bracketEntry: null, avoidSameGroup: false },
     },
     universale01: {
       name: 'Universale01',
-      desc: 'Decidi tu da dove parte il tabellone (predefinito: quarti). Passano le prime dei gironi, poi le seconde, poi le migliori terze, finché i posti finiscono: da un girone ne possono passare 3, da un altro 2. Un set; game come scritti.',
-      settings: { scoreFormat: '1set', sevenAsSix: false, crossGroup: 'assoluto', maxBracket: 8, bracketDirect: 0, bracketEntry: null },
+      desc: 'Decidi tu da dove parte il tabellone (predefinito: quarti). Passano le prime dei gironi, poi le seconde, poi le migliori terze, finché i posti finiscono: da un girone ne possono passare 3, da un altro 2. Coppie dello stesso girone non si incontrano (la prima ha la priorità). Un set; game come scritti.',
+      settings: { scoreFormat: '1set', sevenAsSix: false, crossGroup: 'assoluto', maxBracket: 8, bracketDirect: 0, bracketEntry: null, avoidSameGroup: true },
     },
   };
 
@@ -482,6 +482,7 @@
     if (!t.settings.matchMinutes) t.settings.matchMinutes = 30;
     if (!t.settings.startTime) t.settings.startTime = '09:00';
     if (!t.settings.type) t.settings.type = 'dfcup';
+    if (t.settings.avoidSameGroup === undefined) t.settings.avoidSameGroup = TOURNAMENT_TYPES[tournamentType(t)].settings.avoidSameGroup;
     if (t.settings.sevenAsSix === undefined) {
       // Regola introdotta nella 1.6: ricalcola i game delle partite già giocate.
       t.settings.sevenAsSix = true;
@@ -686,14 +687,49 @@
     const ko = t.knockout;
     const seedIdx = (id) => ko.seeds.indexOf(id);
     const ids = roundParticipants(ko, r).sort((a, b) => seedIdx(a) - seedIdx(b));
-    const matches = [];
-    for (let i = 0; i < ids.length / 2; i++) {
-      matches.push({
-        id: uid('k'), a: ids[i], b: ids[ids.length - 1 - i], sets: [], done: false,
-        court: (i % t.courts) + 1,
-      });
-    }
+    const groupOf = {};
+    if (t.settings.avoidSameGroup) t.groups.forEach((g) => g.teamIds.forEach((id) => { groupOf[id] = g.id; }));
+    const pairs = pairBestWorst(ids, t.settings.avoidSameGroup ? groupOf : null);
+    const matches = pairs.map(([a, b], i) => ({
+      id: uid('k'), a, b, sets: [], done: false, court: (i % t.courts) + 1,
+    }));
     return { index: r, name: roundName(ko.total, r), matches };
+  }
+
+  // Accoppia una lista ordinata dalla migliore alla peggiore: la migliore rimasta contro la peggiore.
+  // Con groupOf, due coppie dello stesso girone non si incontrano se c'è un'alternativa:
+  // la meglio classificata ha la priorità e prende la peggiore di un altro girone.
+  function pairBestWorst(ids, groupOf) {
+    const plain = () => {
+      const out = [];
+      for (let i = 0; i < ids.length / 2; i++) out.push([ids[i], ids[ids.length - 1 - i]]);
+      return out;
+    };
+    if (!groupOf) return plain();
+    const clash = (a, b) => groupOf[a] && groupOf[a] === groupOf[b];
+    // Cerca un accoppiamento senza scontri tra coppie dello stesso girone (con priorità alle migliori).
+    const solve = (list) => {
+      if (!list.length) return [];
+      const [top, ...rest] = list;
+      for (let j = rest.length - 1; j >= 0; j--) {
+        if (clash(top, rest[j])) continue;
+        const sub = solve(rest.filter((_, k) => k !== j));
+        if (sub) return [[top, rest[j]], ...sub];
+      }
+      return null;
+    };
+    const perfect = ids.length <= 32 ? solve(ids) : null;
+    if (perfect) return perfect;
+    // Impossibile evitarli tutti: scelte una alla volta, la migliore prende la peggiore di un altro girone se c'è.
+    const out = [];
+    const left = ids.slice();
+    while (left.length) {
+      const top = left.shift();
+      let j = left.length - 1;
+      while (j > 0 && clash(top, left[j])) j--;
+      out.push([top, left.splice(j, 1)[0]]);
+    }
+    return out;
   }
 
   // Genera i turni successivi quando quello corrente è completo.
@@ -830,7 +866,7 @@
     FORMATS, sevenCountsAsSix, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
     setGroupScore, revalidateScores, normalize, hasScore,
     groupStandings, overallRanking,
-    bracketConfig, bracketEntryOptions, bracketPlan, roundName, createKnockout, matchWinner, roundComplete, roundParticipants,
+    bracketConfig, bracketEntryOptions, bracketPlan, pairBestWorst, roundName, createKnockout, matchWinner, roundComplete, roundParticipants,
     advanceKnockout, setKnockoutScore, swapKnockoutTeams, knockoutHasResultsAfter, champion, indexTeams, shuffle,
   };
 });

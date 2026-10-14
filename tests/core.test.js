@@ -551,6 +551,33 @@ test('Universale01: dai quarti con 3 gironi passano 3 prime, 3 seconde e le 2 mi
   assert.ok(ko.seeds.every((id) => ko.entry[id] === 0));
 });
 
+test('stesso girone: non si incontrano, la meglio classificata ha la priorità', () => {
+  // Coppie in ordine di classifica 1..8, gironi: 1A 2B 3C 4A 5B 6C 7A 8B
+  const ids = ['1', '2', '3', '4', '5', '6', '7', '8'];
+  const g = { 1: 'A', 2: 'B', 3: 'C', 4: 'A', 5: 'B', 6: 'C', 7: 'A', 8: 'B' };
+  assert.deepStrictEqual(C.pairBestWorst(ids, null), [['1', '8'], ['2', '7'], ['3', '6'], ['4', '5']]);
+  const p = C.pairBestWorst(ids, g);
+  // La 1 (A) prende la peggiore di un altro girone: la 8 (B).
+  assert.deepStrictEqual(p[0], ['1', '8']);
+  assert.ok(p.every(([a, b]) => g[a] !== g[b]));
+  // La 3 (C) non può prendere la 6 (C): prende la peggiore rimasta di un altro girone.
+  const p3 = p.find(([a]) => a === '3');
+  assert.notStrictEqual(g[p3[1]], 'C');
+  // Se non c'è alternativa si incontrano comunque.
+  assert.deepStrictEqual(C.pairBestWorst(['1', '2'], { 1: 'A', 2: 'A' }), [['1', '2']]);
+});
+
+test('Universale01: nei quarti nessuna sfida tra coppie dello stesso girone', () => {
+  for (const n of [12, 16]) {
+    const t = C.newTournament({ name: 'u', count: n, courts: n === 12 ? 3 : 4, type: 'universale01' });
+    t.teams.forEach((x, i) => { x.p1 = 'P' + i; x.p2 = 'Q' + i; });
+    C.buildGroups(t); playGroups(t); C.createKnockout(t);
+    const groupOf = {};
+    t.groups.forEach((gr) => gr.teamIds.forEach((id) => { groupOf[id] = gr.id; }));
+    assert.ok(t.knockout.rounds[0].matches.every((m) => groupOf[m.a] !== groupOf[m.b]), `n=${n}`);
+  }
+});
+
 test('tabellone: scambio manuale degli accoppiamenti', () => {
   const t = makeTournament(12);
   C.buildGroups(t); playGroups(t); C.createKnockout(t);
