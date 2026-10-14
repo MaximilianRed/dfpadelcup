@@ -142,6 +142,8 @@
     'sec-ko-plan': 'Come si gioca il tabellone: quante coppie entrano, quante passano direttamente e in quale turno.',
     'ko-size': 'Quante coppie entrano nel tabellone, prese dall\'alto della classifica generale. Al massimo tutte.',
     'ko-direct': 'Quante coppie, le migliori della classifica, saltano i primi turni ed entrano direttamente più avanti.',
+    'ko-start': 'Da quale turno parte il tabellone: passano tante coppie quanti sono i posti (4, 8, 16, 32), prese dalla classifica generale: prima le prime dei gironi, poi le seconde, poi le migliori terze...',
+    'action:plan-start': 'Il tabellone parte da questo turno: passano le migliori coppie della classifica fino a riempire i posti.',
     'ko-entry': 'Il turno in cui entrano le coppie che passano direttamente.',
     'action:plan-entry': 'Le coppie che passano direttamente entrano in questo turno.',
     'rules': 'Testo libero: scrivi qui il regolamento del torneo. Compare in cima al Calendario, anche in stampa.',

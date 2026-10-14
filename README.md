@@ -6,7 +6,9 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
 
 1. **Tornei → Nuovo torneo**: nome, data e **tipo di torneo**:
    - **DF Padel Cup**: le prime 4 della classifica passano direttamente ai quarti; in classifica il 7 conta come 6;
-   - **Classico**: tutte le coppie passano dai gironi al tabellone e giocano dal primo turno; game come scritti.
+   - **Classico**: tutte le coppie passano dai gironi al tabellone e giocano dal primo turno; game come scritti;
+   - **Universale01**: decidi tu da dove parte il tabellone (predefinito: quarti); passano le prime dei gironi, poi
+     le seconde, poi le migliori terze finché i posti finiscono (da un girone ne possono passare 3, da un altro 2).
 
    Il tipo imposta tutti i parametri, che si possono poi ritoccare (compare «personalizzato»). Nuovi tipi si
    aggiungono in `js/core.js`, `TOURNAMENT_TYPES`. Poi con − e + coppie, campi, minuti a partita e ora di inizio.
@@ -99,6 +101,8 @@ La versione e la data dell'aggiornamento sono scritte nella testata dell'app e i
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.9.0** (14/10/2026) — Nuovo tipo di torneo Universale01; pulsanti "Il tabellone parte da"; spiegazione
+  di chi passa anche per fasce prese a metà ("le 2 migliori terze").
 - **1.8.0** (28/09/2026) — Accoppiamenti del tabellone modificabili a mano (scambio a due clic).
 - **1.7.0** (28/09/2026) — Tipi di torneo: DF Padel Cup e Classico, scelti con un clic in Nuovo torneo e
   nelle regole; "le prime 2 di ogni girone" nel numero di coppie del tabellone.

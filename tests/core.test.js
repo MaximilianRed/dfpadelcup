@@ -527,6 +527,30 @@ test('tipi di torneo: DF Padel Cup e Classico', () => {
   assert.strictEqual(old.settings.type, 'dfcup');
 });
 
+test('Universale01: dai quarti con 3 gironi passano 3 prime, 3 seconde e le 2 migliori terze', () => {
+  const t = C.newTournament({ name: 'u', count: 12, courts: 3, type: 'universale01' });
+  assert.strictEqual(C.tournamentType(t), 'universale01');
+  t.teams.forEach((x, i) => { x.p1 = 'P' + i; x.p2 = 'Q' + i; });
+  C.buildGroups(t);
+  assert.strictEqual(t.groups.length, 3);
+  playGroups(t);
+  C.createKnockout(t);
+  const ko = t.knockout;
+  assert.strictEqual(ko.seeds.length, 8);
+  assert.strictEqual(ko.rounds[0].name, 'Quarti di finale');
+  assert.strictEqual(ko.rounds[0].matches.length, 4);
+  // Posizione nel girone delle coppie qualificate: 3 prime, 3 seconde, 2 terze.
+  const { ranking } = C.overallRanking(t);
+  const pos = ranking.slice(0, 8).map((r) => r.groupPos);
+  assert.deepStrictEqual(pos, [1, 1, 1, 2, 2, 2, 3, 3]);
+  // Da un girone ne passano 3, dagli altri 2 o 3: mai tutte e 4.
+  const perGroup = t.groups.map((g) => g.teamIds.filter((id) => ko.seeds.includes(id)).length);
+  assert.strictEqual(perGroup.reduce((a, b) => a + b, 0), 8);
+  assert.ok(perGroup.every((k) => k >= 2 && k <= 3));
+  // Nessuna salta turni.
+  assert.ok(ko.seeds.every((id) => ko.entry[id] === 0));
+});
+
 test('tabellone: scambio manuale degli accoppiamenti', () => {
   const t = makeTournament(12);
   C.buildGroups(t); playGroups(t); C.createKnockout(t);

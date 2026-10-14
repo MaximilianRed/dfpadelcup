@@ -1036,17 +1036,29 @@
       if (k) { bands.push({ label, from: edge + 1, to: edge + k }); edge += k; }
     });
     const bandText = (from, to) => {
-      const inside = bands.filter((bd) => bd.from >= from && bd.to <= to);
-      if (!inside.length || inside[0].from !== from || inside[inside.length - 1].to !== to) return '';
-      const names = inside.map((bd) => 'le ' + bd.label);
-      return ` (${names.length > 1 ? names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1] : names[0]} dei gironi)`;
+      const full = [], parts = [];
+      for (const bd of bands) {
+        if (bd.to < from || bd.from > to) continue;
+        if (bd.from >= from && bd.to <= to) { full.push('le ' + bd.label); continue; }
+        // Fascia presa solo in parte: le migliori (dall'inizio della fascia) o le peggiori (alla fine).
+        const k = Math.min(bd.to, to) - Math.max(bd.from, from) + 1;
+        const one = bd.label.slice(0, -1) + 'a'; // prime → prima, terze → terza
+        if (Math.max(bd.from, from) === bd.from) parts.push(k === 1 ? `la migliore ${one}` : `le ${k} migliori ${bd.label}`);
+        else if (Math.min(bd.to, to) === bd.to) parts.push(k === 1 ? `la peggiore ${one}` : `le ${k} peggiori ${bd.label}`);
+        else return '';
+      }
+      if (!full.length && !parts.length) return '';
+      const list = (xs) => (xs.length > 1 ? xs.slice(0, -1).join(', ') + ' e ' + xs[xs.length - 1] : xs[0]);
+      const head = full.length ? `${list(full)} dei gironi` : '';
+      const tail = parts.length ? list(parts) : '';
+      return ` (${[head, tail].filter(Boolean).join(' + ')})`;
     };
     let slot = s.groupSlots;
     const rounds = s.rounds.map((r) => {
       const who = [];
       if (r.enter) {
         const [from, to] = r.enter;
-        who.push(from === 1 && to === s.bracket.size ? `entrano tutte le ${to} coppie`
+        who.push(from === 1 && to === p.n ? `entrano tutte le ${to} coppie`
           : (from === to ? `entra la ${ord(from)}`
             : from === 1 ? `entrano le prime ${to}`
               : `entrano le coppie dalla ${ord(from)} alla ${ord(to)}`) + bandText(from, to));
@@ -1071,6 +1083,12 @@
       <div class="steppers">
         ${stepper(target, 'kosize', 'Coppie nel tabellone', b.size === p.n ? `${b.size} <small>tutte</small>` : `${b.size}${sizeBand(b.size)}`, 'ko-size')}
         ${stepper(target, 'direct', 'Passano direttamente', b.direct, 'ko-direct')}
+      </div>
+      <div class="option-row" data-help-key="ko-start">
+        <span class="option-label">Il tabellone parte da</span>
+        <div class="segmented" role="group" aria-label="Turno da cui parte il tabellone">
+          ${[4, 8, 16, 32].filter((S) => S <= p.n).map((S) => `<button type="button" class="${b.size === S && !b.direct ? 'active' : ''}" data-action="plan-start" data-target="${target}" data-s="${S}">${ENTRY[S]} <small>(${S} coppie)</small></button>`).join('')}
+        </div>
       </div>
       ${b.direct && entryOpts.length ? `<div class="option-row" data-help-key="ko-entry">
         <span class="option-label">${b.direct === 1 ? 'La prima entra' : `Le prime ${b.direct} entrano`} in</span>
@@ -1428,6 +1446,12 @@
         const st = fmtTime(Math.min(23 * 60, Math.max(6 * 60, toMin(p.start) + d * 15)));
         if (el.dataset.target === 'new') p.start = st; else { t.settings.startTime = st; persist(); }
       }
+      render();
+    },
+    'plan-start': (el) => {
+      const p = planOf(el.dataset.target);
+      const S = parseInt(el.dataset.s, 10);
+      setKo(el.dataset.target, { size: S >= p.n ? 0 : S, direct: 0, entry: null });
       render();
     },
     'plan-entry': (el) => {

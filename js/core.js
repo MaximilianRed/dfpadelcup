@@ -11,8 +11,8 @@
 
   // Versione del programma e data dell'aggiornamento (AAAA-MM-GG): aggiornale a ogni rilascio
   // (vedi README, "Versioni").
-  const VERSION = '1.8.0';
-  const VERSION_DATE = '2026-09-28';
+  const VERSION = '1.9.0';
+  const VERSION_DATE = '2026-10-14';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -50,6 +50,11 @@
       name: 'Classico',
       desc: 'Tutte le coppie passano dai gironi al tabellone e giocano dal primo turno: nessuna entra direttamente più avanti. Un set; i game contano come scritti.',
       settings: { scoreFormat: '1set', sevenAsSix: false, crossGroup: 'assoluto', maxBracket: 0, bracketDirect: 0, bracketEntry: null },
+    },
+    universale01: {
+      name: 'Universale01',
+      desc: 'Decidi tu da dove parte il tabellone (predefinito: quarti). Passano le prime dei gironi, poi le seconde, poi le migliori terze, finché i posti finiscono: da un girone ne possono passare 3, da un altro 2. Un set; game come scritti.',
+      settings: { scoreFormat: '1set', sevenAsSix: false, crossGroup: 'assoluto', maxBracket: 8, bracketDirect: 0, bracketEntry: null },
     },
   };
 
