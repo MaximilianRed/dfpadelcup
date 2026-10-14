@@ -11,7 +11,7 @@
 
   // Versione del programma e data dell'aggiornamento (AAAA-MM-GG): aggiornale a ogni rilascio
   // (vedi README, "Versioni").
-  const VERSION = '1.9.0';
+  const VERSION = '1.10.0';
   const VERSION_DATE = '2026-10-14';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -297,6 +297,10 @@
     let buckets;
     if (t.settings.drawMode === 'ordine') {
       buckets = rankedBuckets(t, sizes);
+    } else if (t.settings.drawMode === 'manuale') {
+      // Composizione a mano: si parte dall'ordine dell'elenco (A = prime coppie, B = successive...).
+      let k = 0;
+      buckets = sizes.map((size) => t.teams.slice(k, (k += size)).map((x) => x.id));
     } else {
       const order = t.settings.drawMode === 'casuale'
         ? shuffle(t.teams, rng)
@@ -344,6 +348,30 @@
     t.groupMatches = t.groupMatches.filter((m) => m.groupId !== gA.id && m.groupId !== gB.id);
     t.groupMatches.push(...scheduleGroup(gA), ...scheduleGroup(gB));
     t.knockout = null;
+  }
+
+  // Perché una coppia non può essere spostata in un girone (null se si può).
+  function moveProblem(t, teamId, groupId) {
+    const from = t.groups.find((g) => g.teamIds.includes(teamId));
+    const to = t.groups.find((g) => g.id === groupId);
+    if (!from || !to) return 'Girone non trovato';
+    if (from === to) return 'La coppia è già in questo girone';
+    if (to.teamIds.length >= 4) return `Il girone ${to.name} ha già 4 coppie: scambia invece di spostare`;
+    if (from.teamIds.length <= 3) return `Il girone ${from.name} resterebbe con 2 coppie: scambia invece di spostare`;
+    return null;
+  }
+
+  // Sposta una coppia in un altro girone e rifà le partite dei due gironi.
+  function moveTeamToGroup(t, teamId, groupId) {
+    if (moveProblem(t, teamId, groupId)) return false;
+    const from = t.groups.find((g) => g.teamIds.includes(teamId));
+    const to = t.groups.find((g) => g.id === groupId);
+    from.teamIds = from.teamIds.filter((id) => id !== teamId);
+    to.teamIds.push(teamId);
+    t.groupMatches = t.groupMatches.filter((m) => m.groupId !== from.id && m.groupId !== to.id);
+    t.groupMatches.push(...scheduleGroup(from), ...scheduleGroup(to));
+    t.knockout = null;
+    return true;
   }
 
   /* ------------------------------------------------------------- PUNTEGGI */
@@ -862,7 +890,7 @@
   return {
     VERSION, VERSION_DATE, LETTERS, TOURNAMENT_TYPES, tournamentType, applyType, typeChanges, newTournament, newTeam, teamName, clampCourts,
     isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
-    groupSizes, groupRange, tournamentSizes, describeSizes, describeGroups, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
+    moveProblem, moveTeamToGroup, groupSizes, groupRange, tournamentSizes, describeSizes, describeGroups, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
     FORMATS, sevenCountsAsSix, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
     setGroupScore, revalidateScores, normalize, hasScore,
     groupStandings, overallRanking,

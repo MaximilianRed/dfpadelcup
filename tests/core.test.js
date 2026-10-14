@@ -491,6 +491,33 @@ test('tornei delle versioni precedenti (punteggio senza set)', () => {
   assert.ok(t.groupMatches.every((m) => C.isPlayed(m) && m.sets.length === 1));
 });
 
+test('spostare una coppia in un altro girone (gironi da 3 o 4)', () => {
+  const t = makeTournament(14); // 4 gironi su 4 campi: 4, 4, 3, 3
+  C.buildGroups(t);
+  const [A, B, Cg, D] = t.groups;
+  const x = A.teamIds[1];
+  // Da un girone da 4 verso uno da 3: si può.
+  assert.strictEqual(C.moveProblem(t, x, Cg.id), null);
+  assert.ok(C.moveTeamToGroup(t, x, Cg.id));
+  assert.deepStrictEqual(t.groups.map((g) => g.teamIds.length), [3, 4, 4, 3]);
+  assert.ok(Cg.teamIds.includes(x) && !A.teamIds.includes(x));
+  // Le partite dei due gironi sono rifatte: 3 nel girone da 3, 6 in quello da 4.
+  assert.strictEqual(t.groupMatches.filter((m) => m.groupId === A.id).length, 3);
+  assert.strictEqual(t.groupMatches.filter((m) => m.groupId === Cg.id).length, 6);
+  // Verso un girone da 4 o da un girone da 3: non si può.
+  assert.ok(/già 4 coppie/.test(C.moveProblem(t, D.teamIds[0], B.id)));
+  assert.ok(/2 coppie/.test(C.moveProblem(t, A.teamIds[0], D.id)));
+  assert.ok(!C.moveTeamToGroup(t, A.teamIds[0], D.id));
+});
+
+test('sorteggio "li compongo io": gironi in ordine di elenco', () => {
+  const t = makeTournament(8);
+  t.settings.drawMode = 'manuale';
+  C.buildGroups(t);
+  assert.deepStrictEqual(t.groups[0].teamIds, t.teams.slice(0, 4).map((x) => x.id));
+  assert.deepStrictEqual(t.groups[1].teamIds, t.teams.slice(4, 8).map((x) => x.id));
+});
+
 test('scambio coppie tra gironi', () => {
   const t = makeTournament(8);
   C.buildGroups(t);

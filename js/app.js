@@ -299,6 +299,10 @@
           <span class="draw-icon">${ICON.rank}</span>
           <span><strong>In ordine di bravura</strong><span class="muted">Tutte teste di serie, dalla 1 alla ${n}: come nel tabellone di tennis, 1 in alto, 2 in basso, le altre incrociate.</span></span>
         </button>
+        <button class="draw-option" data-action="make-groups" data-mode="manuale" data-help-key="draw-manual" ${ready ? '' : 'disabled'}>
+          <span class="draw-icon">${ICON.edit}</span>
+          <span><strong>Li compongo io</strong><span class="muted">Gironi in ordine di elenco, poi sposti e scambi tu le coppie (anche trascinandole).</span></span>
+        </button>
       </div>
     </section>`;
   }
@@ -327,14 +331,15 @@
       <span class="badge" data-help-key="badge-draw">${{
         casuale: ICON.dice + ' Sorteggio casuale',
         ordine: ICON.rank + ' In ordine di bravura',
+        manuale: ICON.edit + ' Composti a mano',
       }[t.settings.drawMode] || ICON.star + ' Teste di serie'}</span>
       <span class="spacer"></span>
       <button class="btn small ${ui.editGroups ? 'primary' : ''}" data-action="toggle-edit">${ICON.edit} ${ui.editGroups ? 'Fine modifica' : 'Modifica composizione'}</button>
       <button class="btn small" data-action="print">${ICON.print} Stampa</button>
     </div>
     ${ui.editGroups ? `<p class="notice">${ui.swapPick
-      ? `Hai scelto <strong>${name(ui.swapPick)}</strong>: ora clicca la coppia di un altro girone con cui scambiarla (o di nuovo la stessa per annullare).`
-      : 'Clicca una coppia, poi la coppia di un altro girone con cui scambiarla. Le partite dei due gironi vengono rigenerate.'}</p>` : ''}
+      ? `Hai scelto <strong>${name(ui.swapPick)}</strong>: clicca una coppia di un altro girone per <strong>scambiarle</strong>, oppure <strong>«Sposta qui»</strong> su un girone per spostarla (o di nuovo la stessa coppia per annullare).`
+      : 'Clicca una coppia, poi un\'altra coppia per <strong>scambiarle</strong> oppure «Sposta qui» su un girone per <strong>spostarla</strong>. Dal computer puoi anche <strong>trascinarle</strong>. I gironi restano da 3 o 4 coppie; le partite dei gironi toccati si rifanno da sole.'}</p>` : ''}
     ${played === total ? `<section class="card summary no-print"><p><strong>Gironi conclusi!</strong> Tutte le partite sono state giocate.</p>
       <button class="btn ball" data-action="goto" data-tab="classifica">Vai alla classifica ${ICON.arrow}</button></section>` : ''}
     <div class="groups">${groups.map(groupCard).join('')}</div>`;
@@ -353,18 +358,24 @@
     const matches = t.groupMatches.filter((m) => m.groupId === g.id).sort((a, b) => a.order - b.order);
     const anyDraw = st.rows.some((r) => r.drawn);
     const teamCell = (id) => (ui.editGroups
-      ? `<button class="swap-btn ${ui.swapPick === id ? 'picked' : ''}" data-action="swap-pick" data-id="${id}">${name(id)}</button>`
+      ? `<button class="swap-btn ${ui.swapPick === id ? 'picked' : ''}" data-action="swap-pick" data-id="${id}" draggable="true">${name(id)}</button>`
       : name(id));
+    // In modifica, con una coppia scelta di un altro girone: pulsante per spostarla qui.
+    const picked = ui.editGroups && ui.swapPick && !g.teamIds.includes(ui.swapPick);
+    const problem = picked ? C.moveProblem(t, ui.swapPick, g.id) : null;
+    const moveHere = picked ? `<button class="btn small ${problem ? 'ghost' : 'ball'}" data-action="move-here" data-group="${g.id}" ${problem ? `disabled data-help="${esc(problem)}"` : 'data-help-key="move-here"'}>⇣ Sposta qui</button>` : '';
 
     return `
-    <section class="card">
+    <section class="card ${ui.editGroups ? 'drop-group' : ''}" data-group="${g.id}">
       <div class="group-head">
         <div class="group-title" data-help-key="group-title">
           <span class="group-letter">${esc(g.name)}</span>
           <h3>Girone ${esc(g.name)}${st.complete ? '<span class="done-tag" data-help-key="group-done">✓ concluso</span>' : ''}</h3>
         </div>
         <span class="where">
+          ${moveHere}
           <span class="chip" data-help-key="group-court">Campo ${g.court}</span>
+          ${ui.editGroups ? `<span class="chip" data-help-key="group-size">${g.teamIds.length} coppie</span>` : ''}
         </span>
       </div>
       <div class="group-body">
@@ -1371,7 +1382,7 @@
       commit();
     },
     'make-groups': (el) => {
-      const mode = ['casuale', 'ordine'].includes(el.dataset.mode) ? el.dataset.mode : 'teste';
+      const mode = ['casuale', 'ordine', 'manuale'].includes(el.dataset.mode) ? el.dataset.mode : 'teste';
       if (t.groups.length) {
         const hasResults = t.groupMatches.some(C.isPlayed) || t.knockout;
         const msg = hasResults
@@ -1383,6 +1394,13 @@
       C.buildGroups(t);
       ui.court = 0;
       persist();
+      if (mode === 'manuale') {
+        ui.editGroups = true;
+        ui.swapPick = null;
+        go('gironi');
+        toast('Gironi creati: ora sposta e scambia le coppie come vuoi');
+        return;
+      }
       go('calendario');
       toast({
         casuale: 'Gironi sorteggiati',
@@ -1534,12 +1552,10 @@
       const gA = t.groups.find((g) => g.teamIds.includes(ui.swapPick));
       const gB = t.groups.find((g) => g.teamIds.includes(id));
       if (gA === gB) { ui.swapPick = id; render(); return; }
-      const lose = C.groupHasResults(t, gA.id) || C.groupHasResults(t, gB.id) || t.knockout;
-      if (lose && !confirm(`I risultati dei gironi ${gA.name} e ${gB.name}${t.knockout ? ' e il tabellone' : ''} verranno cancellati. Continuare?`)) return;
-      C.swapTeams(t, ui.swapPick, id);
-      toast(`Scambiate: ${C.teamName(TM[ui.swapPick])} ↔ ${C.teamName(TM[id])}`);
-      ui.swapPick = null;
-      commit();
+      swapGroupTeams(ui.swapPick, id);
+    },
+    'move-here': (el) => {
+      if (ui.swapPick) moveGroupTeam(ui.swapPick, el.dataset.group);
     },
 
     'make-ko': () => {
@@ -1569,6 +1585,36 @@
       const d = t.teams.filter((x) => C.isDefaultName(x.p1) || C.isDefaultName(x.p2)).length;
       hint.textContent = d ? `${d === 1 ? '1 coppia ha' : `${d} coppie hanno`} ancora i nomi di default: puoi creare i gironi lo stesso e correggerli dopo.` : '';
     }
+  }
+
+  // Conferma prima di cancellare risultati dei gironi toccati (e il tabellone).
+  function confirmGroupEdit(groupIds) {
+    const gs = t.groups.filter((g) => groupIds.includes(g.id));
+    const lose = gs.some((g) => C.groupHasResults(t, g.id)) || t.knockout;
+    return !lose || confirm(`I risultati dei gironi ${gs.map((g) => g.name).join(' e ')}${t.knockout ? ' e il tabellone' : ''} verranno cancellati. Continuare?`);
+  }
+
+  function swapGroupTeams(a, b) {
+    const gA = t.groups.find((g) => g.teamIds.includes(a));
+    const gB = t.groups.find((g) => g.teamIds.includes(b));
+    if (!gA || !gB || gA === gB) return;
+    if (!confirmGroupEdit([gA.id, gB.id])) return;
+    C.swapTeams(t, a, b);
+    ui.swapPick = null;
+    toast(`Scambiate: ${C.teamName(TM[a])} ↔ ${C.teamName(TM[b])}`);
+    commit();
+  }
+
+  function moveGroupTeam(id, groupId) {
+    const problem = C.moveProblem(t, id, groupId);
+    if (problem) { toast(problem, true); return; }
+    const from = t.groups.find((g) => g.teamIds.includes(id));
+    const to = t.groups.find((g) => g.id === groupId);
+    if (!confirmGroupEdit([from.id, to.id])) return;
+    C.moveTeamToGroup(t, id, groupId);
+    ui.swapPick = null;
+    toast(`${C.teamName(TM[id])} spostata nel girone ${to.name}`);
+    commit();
   }
 
   // Scelte del tabellone: coppie ammesse, coppie dirette, turno di ingresso.
@@ -1707,6 +1753,44 @@
       ui.focus = t.teams.length ? 'p1-' + t.teams[0].id : null;
       go('coppie');
       toast(`Torneo creato con ${p.n} coppie: scrivi i nomi o crea subito i gironi`);
+    }
+  });
+
+  // Trascinamento delle coppie tra i gironi (in "Modifica composizione").
+  let dragId = null;
+  view.addEventListener('dragstart', (e) => {
+    const b = e.target.closest && e.target.closest('.swap-btn[data-action="swap-pick"]');
+    if (!b) return;
+    dragId = b.dataset.id;
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', dragId); } catch (err) { /* ignora */ }
+    b.classList.add('dragging');
+  });
+  view.addEventListener('dragend', () => {
+    dragId = null;
+    view.querySelectorAll('.dragging, .drop-over').forEach((x) => x.classList.remove('dragging', 'drop-over'));
+  });
+  view.addEventListener('dragover', (e) => {
+    if (!dragId) return;
+    const card = e.target.closest && e.target.closest('[data-group]');
+    if (!card) return;
+    e.preventDefault();
+    view.querySelectorAll('.drop-over').forEach((x) => { if (x !== card) x.classList.remove('drop-over'); });
+    card.classList.add('drop-over');
+  });
+  view.addEventListener('drop', (e) => {
+    if (!dragId) return;
+    e.preventDefault();
+    const id = dragId;
+    dragId = null;
+    const onTeam = e.target.closest && e.target.closest('.swap-btn[data-action="swap-pick"]');
+    const card = e.target.closest && e.target.closest('[data-group]');
+    view.querySelectorAll('.drop-over').forEach((x) => x.classList.remove('drop-over'));
+    if (onTeam && onTeam.dataset.id !== id) {
+      const same = t.groups.find((g) => g.teamIds.includes(id)) === t.groups.find((g) => g.teamIds.includes(onTeam.dataset.id));
+      if (!same) swapGroupTeams(id, onTeam.dataset.id);
+    } else if (card && !t.groups.find((g) => g.id === card.dataset.group).teamIds.includes(id)) {
+      moveGroupTeam(id, card.dataset.group);
     }
   });
 

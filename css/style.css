@@ -658,6 +658,9 @@ textarea { width: 100%; resize: vertical; }
   text-align: left;
 }
 .swap-btn:hover { border-color: var(--accent); }
+.swap-btn[draggable="true"] { cursor: grab; }
+.swap-btn.dragging { opacity: 0.45; }
+.drop-group.drop-over { box-shadow: 0 0 0 3px var(--ball), var(--shadow); }
 .swap-btn.picked { background: var(--ball); color: var(--ball-ink); border-style: solid; border-color: transparent; font-weight: 700; }
 
 /* =====================================================================
