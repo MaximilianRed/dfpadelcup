@@ -69,6 +69,8 @@
     'group-court': 'Campo su cui gioca questo girone, assegnato dal sorteggio. L\'ordine delle partite è nella scheda Calendario.',
     'court-filter': 'Mostra solo i gironi di un campo: utile se sei a bordo di un campo.',
     'action:court-filter': 'Mostra solo i gironi di questo campo.',
+    'group-court-pick': 'Su quale campo gioca questo girone: clicca un numero per spostarlo. Se sul campo c\'è già un girone, questo gioca dopo.',
+    'action:group-court': 'Sposta il girone su questo campo. Calendario e orari si aggiornano da soli.',
     'move-here': 'Sposta qui la coppia scelta. Le partite dei due gironi si rifanno da sole.',
     'group-size': 'Quante coppie ha questo girone (sempre 3 o 4).',
     'draw-manual': 'Crea i gironi seguendo l\'ordine dell\'elenco e apre la modifica: sposti e scambi tu le coppie, anche trascinandole.',

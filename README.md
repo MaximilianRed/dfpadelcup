@@ -36,6 +36,8 @@ Web app per organizzare tornei di padel: gironi da 3 o 4 coppie, classifica gene
    Con *Modifica composizione* si **scambiano** due coppie (clic su una e poi sull'altra) o si **sposta** una coppia
    in un altro girone («Sposta qui»); dal computer si possono anche **trascinare**. I gironi restano da 3 o 4.
    Con il sorteggio **Li compongo io** i gironi seguono l'ordine dell'elenco e si apre subito la modifica.
+   Sempre in modifica, i numeri **Campo 1, 2, 3…** su ogni girone lo spostano su un altro campo (se il campo è
+   già occupato gioca dopo); calendario e orari si aggiornano da soli.
 5. **Classifica**: quando i gironi sono conclusi, premi *Genera il tabellone*.
 6. **Tabellone**: *Tabellone completo* mostra tutto il tabellone, dal primo turno alla finale (con i posti ancora
    da definire), da ingrandire con − / + o «Adatta». Si stampa in orizzontale su **1 pagina** o **su più fogli**
@@ -106,6 +108,7 @@ La versione e la data dell'aggiornamento sono scritte nella testata dell'app e i
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.11.0** (14/10/2026) — Spostare i gironi da un campo all'altro nella pagina Gironi.
 - **1.10.0** (14/10/2026) — Gironi composti a mano: spostare le coppie tra gironi, trascinarle, sorteggio
   "Li compongo io".
 - **1.9.0** (14/10/2026) — Nuovo tipo di torneo Universale01 (coppie dello stesso girone non si incontrano);

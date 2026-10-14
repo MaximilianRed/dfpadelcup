@@ -11,7 +11,7 @@
 
   // Versione del programma e data dell'aggiornamento (AAAA-MM-GG): aggiornale a ogni rilascio
   // (vedi README, "Versioni").
-  const VERSION = '1.10.0';
+  const VERSION = '1.11.0';
   const VERSION_DATE = '2026-10-14';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -230,11 +230,12 @@
 
   // Descrizione completa: "4 gironi da 4 coppie su 4 campi",
   // "5 gironi su 4 campi: 1 da 4 coppie e 4 da 3 coppie", "3 gironi da 4 coppie su 3 campi (1 campo libero)".
-  function describeGroups(sizes, courts) {
+  // usedCourts: campi davvero usati (se i gironi sono già stati messi sui campi a mano).
+  function describeGroups(sizes, courts, usedCourts) {
     const G = sizes.length;
     const fours = sizes.filter((s) => s === 4).length;
     const threes = G - fours;
-    const used = courts ? Math.min(G, courts) : 0;
+    const used = courts ? (usedCourts || Math.min(G, courts)) : 0;
     const free = courts ? courts - used : 0;
     const where = used ? ` su ${used} ${used === 1 ? 'campo' : 'campi'}` : '';
     const idle = free ? ` (${free} ${free === 1 ? 'campo libero' : 'campi liberi'})` : '';
@@ -348,6 +349,23 @@
     t.groupMatches = t.groupMatches.filter((m) => m.groupId !== gA.id && m.groupId !== gB.id);
     t.groupMatches.push(...scheduleGroup(gA), ...scheduleGroup(gB));
     t.knockout = null;
+  }
+
+  // Sposta un girone su un altro campo: gioca dopo i gironi già presenti su quel campo.
+  // L'ordine sui campi viene poi rinumerato (1°, 2°, ...) senza buchi.
+  function setGroupCourt(t, groupId, court) {
+    const g = t.groups.find((x) => x.id === groupId);
+    if (!g || court < 1 || court > t.courts || g.court === court) return false;
+    const others = t.groups.filter((x) => x !== g && x.court === court);
+    g.court = court;
+    g.turn = others.length ? Math.max(...others.map((x) => x.turn)) + 1 : 1;
+    const courts = [...new Set(t.groups.map((x) => x.court))];
+    courts.forEach((c) => {
+      t.groups.filter((x) => x.court === c)
+        .sort((a, b) => a.turn - b.turn || a.name.localeCompare(b.name))
+        .forEach((x, i) => { x.turn = i + 1; });
+    });
+    return true;
   }
 
   // Perché una coppia non può essere spostata in un girone (null se si può).
@@ -890,7 +908,7 @@
   return {
     VERSION, VERSION_DATE, LETTERS, TOURNAMENT_TYPES, tournamentType, applyType, typeChanges, newTournament, newTeam, teamName, clampCourts,
     isTeamComplete, isTeamEmpty, defaultTeam, isDefaultName, isTeamPlaceholder, resizeTeams, filledLostOnResize,
-    moveProblem, moveTeamToGroup, groupSizes, groupRange, tournamentSizes, describeSizes, describeGroups, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
+    setGroupCourt, moveProblem, moveTeamToGroup, groupSizes, groupRange, tournamentSizes, describeSizes, describeGroups, seedCount, simulate, simulateOptions, tennisOrder, groupSeedRanks, buildGroups, swapTeams, isPlayed, groupHasResults,
     FORMATS, sevenCountsAsSix, isValidSet, isValidSuperTB, evalSets, scoreError, scoreFormat, setCount, applyScore,
     setGroupScore, revalidateScores, normalize, hasScore,
     groupStandings, overallRanking,

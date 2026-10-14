@@ -510,6 +510,22 @@ test('spostare una coppia in un altro girone (gironi da 3 o 4)', () => {
   assert.ok(!C.moveTeamToGroup(t, A.teamIds[0], D.id));
 });
 
+test('spostare un girone su un altro campo', () => {
+  const t = makeTournament(16, 4); // 4 gironi, uno per campo
+  C.buildGroups(t);
+  const [A, B, Cg, D] = t.groups;
+  // D va sul campo 1: gioca dopo A.
+  assert.ok(C.setGroupCourt(t, D.id, 1));
+  assert.deepStrictEqual([A.court, A.turn, D.court, D.turn], [1, 1, 1, 2]);
+  // A va sul campo 4 (ora libero): D diventa il primo del campo 1.
+  assert.ok(C.setGroupCourt(t, A.id, 4));
+  assert.deepStrictEqual([A.court, A.turn, D.court, D.turn], [4, 1, 1, 1]);
+  // Campo inesistente o uguale: nessun cambio.
+  assert.ok(!C.setGroupCourt(t, B.id, 9));
+  assert.ok(!C.setGroupCourt(t, B.id, B.court));
+  assert.strictEqual(Cg.court, 3);
+});
+
 test('sorteggio "li compongo io": gironi in ordine di elenco', () => {
   const t = makeTournament(8);
   t.settings.drawMode = 'manuale';

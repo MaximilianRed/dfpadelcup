@@ -326,7 +326,7 @@
         <button class="${ui.court ? '' : 'active'}" data-action="court-filter" data-court="0">Tutti</button>
         ${courts.map((c) => `<button class="${ui.court === c ? 'active' : ''}" data-action="court-filter" data-court="${c}">Campo ${c}</button>`).join('')}
       </div>` : ''}
-      <span class="badge" data-help-key="badge-groups">${C.describeGroups(t.groups.map((g) => g.teamIds.length), t.courts)}</span>
+      <span class="badge" data-help-key="badge-groups">${C.describeGroups(t.groups.map((g) => g.teamIds.length), t.courts, new Set(t.groups.map((g) => g.court)).size)}</span>
       <span class="badge" data-help-key="badge-matches">${played}/${total} partite</span>
       <span class="badge" data-help-key="badge-draw">${{
         casuale: ICON.dice + ' Sorteggio casuale',
@@ -339,7 +339,7 @@
     </div>
     ${ui.editGroups ? `<p class="notice">${ui.swapPick
       ? `Hai scelto <strong>${name(ui.swapPick)}</strong>: clicca una coppia di un altro girone per <strong>scambiarle</strong>, oppure <strong>«Sposta qui»</strong> su un girone per spostarla (o di nuovo la stessa coppia per annullare).`
-      : 'Clicca una coppia, poi un\'altra coppia per <strong>scambiarle</strong> oppure «Sposta qui» su un girone per <strong>spostarla</strong>. Dal computer puoi anche <strong>trascinarle</strong>. I gironi restano da 3 o 4 coppie; le partite dei gironi toccati si rifanno da sole.'}</p>` : ''}
+      : 'Clicca una coppia, poi un\'altra coppia per <strong>scambiarle</strong> oppure «Sposta qui» su un girone per <strong>spostarla</strong>. Dal computer puoi anche <strong>trascinarle</strong>. I gironi restano da 3 o 4 coppie; le partite dei gironi toccati si rifanno da sole. Con i numeri <strong>Campo 1, 2, 3…</strong> sposti un girone su un altro campo.'}</p>` : ''}
     ${played === total ? `<section class="card summary no-print"><p><strong>Gironi conclusi!</strong> Tutte le partite sono state giocate.</p>
       <button class="btn ball" data-action="goto" data-tab="classifica">Vai alla classifica ${ICON.arrow}</button></section>` : ''}
     <div class="groups">${groups.map(groupCard).join('')}</div>`;
@@ -374,7 +374,10 @@
         </div>
         <span class="where">
           ${moveHere}
-          <span class="chip" data-help-key="group-court">Campo ${g.court}</span>
+          ${ui.editGroups && t.courts > 1
+            ? `<span class="court-pick" role="group" aria-label="Campo del girone ${esc(g.name)}" data-help-key="group-court-pick">Campo
+                ${Array.from({ length: t.courts }, (_, i) => i + 1).map((c) => `<button class="${c === g.court ? 'active' : ''}" data-action="group-court" data-group="${g.id}" data-court="${c}">${c}</button>`).join('')}</span>`
+            : `<span class="chip" data-help-key="group-court">Campo ${g.court}</span>`}
           ${ui.editGroups ? `<span class="chip" data-help-key="group-size">${g.teamIds.length} coppie</span>` : ''}
         </span>
       </div>
@@ -914,7 +917,7 @@
     }
 
     return `
-    <div class="toolbar"><span class="badge">${C.describeGroups(t.groups.map((g) => g.teamIds.length), t.courts)}</span>
+    <div class="toolbar"><span class="badge">${C.describeGroups(t.groups.map((g) => g.teamIds.length), t.courts, new Set(t.groups.map((g) => g.court)).size)}</span>
       <span class="badge" data-help-key="cal-times">${ICON.clock} inizio ${esc(t.settings.startTime)} · ${min} min a partita</span>
       <span class="spacer"></span>
       <button class="btn small" data-action="goto" data-tab="coppie">${ICON.clock} Cambia orari</button>
@@ -1553,6 +1556,15 @@
       const gB = t.groups.find((g) => g.teamIds.includes(id));
       if (gA === gB) { ui.swapPick = id; render(); return; }
       swapGroupTeams(ui.swapPick, id);
+    },
+    'group-court': (el) => {
+      const g = t.groups.find((x) => x.id === el.dataset.group);
+      const court = parseInt(el.dataset.court, 10);
+      const before = t.groups.filter((x) => x !== g && x.court === court).map((x) => x.name);
+      if (!C.setGroupCourt(t, g.id, court)) return;
+      persist();
+      render();
+      toast(`Girone ${g.name} sul campo ${court}${before.length ? `: gioca dopo il girone ${before.join(', ')}` : ''}`);
     },
     'move-here': (el) => {
       if (ui.swapPick) moveGroupTeam(ui.swapPick, el.dataset.group);
