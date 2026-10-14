@@ -115,6 +115,8 @@ La versione e la data dell'aggiornamento sono scritte nella testata dell'app e i
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.13.0** (14/10/2026) — Nascondere le partite di ogni girone (e di tutti); in "Modifica composizione" si
+  chiudono da sole per spostare le coppie più comodamente.
 - **1.12.0** (14/10/2026) — Invio del torneo con un link su WhatsApp (per esempio all'arbitro) e apertura
   del link sul telefono di chi lo riceve.
 - **1.11.0** (14/10/2026) — Spostare i gironi da un campo all'altro nella pagina Gironi.

@@ -659,6 +659,7 @@ textarea { width: 100%; resize: vertical; }
 }
 .swap-btn:hover { border-color: var(--accent); }
 .swap-btn[draggable="true"] { cursor: grab; }
+.matches-toggle { width: 100%; margin-top: 10px; justify-content: center; color: var(--accent); }
 .court-pick {
   display: inline-flex;
   align-items: center;

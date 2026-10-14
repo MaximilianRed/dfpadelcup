@@ -11,7 +11,7 @@
 
   // Versione del programma e data dell'aggiornamento (AAAA-MM-GG): aggiornale a ogni rilascio
   // (vedi README, "Versioni").
-  const VERSION = '1.12.0';
+  const VERSION = '1.13.0';
   const VERSION_DATE = '2026-10-14';
 
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

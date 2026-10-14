@@ -14,7 +14,7 @@
   let t = null; // torneo aperto
   let TM = {}; // coppie per id
   let tab = 'tornei';
-  const ui = { court: 0, editGroups: false, focus: null };
+  const ui = { court: 0, editGroups: false, focus: null, collapsed: new Set() };
   const FREE_TABS = ['tornei', 'impostazioni']; // usabili anche senza un torneo aperto
 
   /* ------------------------------------------------------------ preferenze */
@@ -335,6 +335,7 @@
         manuale: ICON.edit + ' Composti a mano',
       }[t.settings.drawMode] || ICON.star + ' Teste di serie'}</span>
       <span class="spacer"></span>
+      <button class="btn small" data-action="toggle-all-matches" data-help-key="toggle-all-matches">${t.groups.every((g) => ui.collapsed.has(g.id)) ? '▾ Mostra tutte le partite' : '▴ Nascondi tutte le partite'}</button>
       <button class="btn small ${ui.editGroups ? 'primary' : ''}" data-action="toggle-edit">${ICON.edit} ${ui.editGroups ? 'Fine modifica' : 'Modifica composizione'}</button>
       <button class="btn small" data-action="share-t" data-help-key="share-ref">${ICON.share} Invia all'arbitro</button>
       <button class="btn small" data-action="print">${ICON.print} Stampa</button>
@@ -396,7 +397,9 @@
             <td>${r.played}</td><td class="pts">${r.won}</td>${anyDraw ? `<td>${r.drawn}</td>` : ''}<td>${r.lost}</td><td>${r.gw}</td><td>${r.gl}</td>
           </tr>`).join('')}</tbody>
       </table></div>
-      <div class="matches">${matches.map((m) => scoreBoard(m, false)).join('')}</div>
+      ${ui.collapsed.has(g.id) ? '' : `<div class="matches">${matches.map((m) => scoreBoard(m, false)).join('')}</div>`}
+      <button class="btn small ghost matches-toggle no-print" data-action="toggle-matches" data-group="${g.id}" data-help-key="toggle-matches">
+        ${ui.collapsed.has(g.id) ? `▾ Mostra le ${matches.length} partite${matches.some(C.isPlayed) ? ` (${matches.filter(C.isPlayed).length} giocate)` : ''}` : '▴ Nascondi partite'}</button>
       </div>
     </section>`;
   }
@@ -1512,7 +1515,23 @@
     'ko-share': () => {
       shareBracket().catch(() => toast('Non sono riuscito a creare l\'immagine del tabellone', true));
     },
-    'toggle-edit': () => { ui.editGroups = !ui.editGroups; ui.swapPick = null; render(); },
+    'toggle-edit': () => {
+      ui.editGroups = !ui.editGroups;
+      ui.swapPick = null;
+      // In modifica le partite si chiudono da sole: si vedono solo le coppie da spostare.
+      if (ui.editGroups) t.groups.forEach((g) => ui.collapsed.add(g.id));
+      render();
+    },
+    'toggle-matches': (el) => {
+      const id = el.dataset.group;
+      if (ui.collapsed.has(id)) ui.collapsed.delete(id); else ui.collapsed.add(id);
+      render();
+    },
+    'toggle-all-matches': () => {
+      const allHidden = t.groups.every((g) => ui.collapsed.has(g.id));
+      if (allHidden) ui.collapsed.clear(); else t.groups.forEach((g) => ui.collapsed.add(g.id));
+      render();
+    },
     'court-filter': (el) => { ui.court = parseInt(el.dataset.court, 10) || 0; render(); },
 
     // Pianificatore: − e + ricalcolano subito gironi e tempi.
