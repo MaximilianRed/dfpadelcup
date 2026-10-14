@@ -64,7 +64,8 @@ Passando il mouse su qualsiasi voce (pulsanti, campi, intestazioni delle tabelle
 - **Gironi**: da 3 o da 4 coppie, un girone per campo quando si può: con pochi campi gironi da 4,
   con tanti campi gironi da 3, ma solo se così il torneo finisce prima (a parità di orario si preferiscono
   gironi da 4, con più partite per tutti). Se i gironi sono più dei campi, alcuni giocano dopo.
-  Nella scelta dei gironi si può prendere a mano un'altra divisione.
+  La divisione la sceglie l'organizzatore: il pannello mostra tutte quelle possibili a confronto (partite a coppia,
+  orari di fine) e parte preselezionato "un girone per campo".
   Non si possono fare con 1, 2 o 5 coppie.
 - **Classifica del girone**: partite vinte → game vinti → game persi (meno è meglio) → scontro diretto → monetina.
 - **Classifica generale**: prima tutte le prime dei gironi, poi le seconde, ecc.; dentro ogni fascia
@@ -103,7 +104,8 @@ La versione e la data dell'aggiornamento sono scritte nella testata dell'app e i
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
-- **1.9.0** (14/10/2026) — Nuovo tipo di torneo Universale01 (coppie dello stesso girone non si incontrano); pulsanti "Il tabellone parte da"; spiegazione
+- **1.9.0** (14/10/2026) — Nuovo tipo di torneo Universale01 (coppie dello stesso girone non si incontrano);
+  la divisione in gironi la sceglie l'organizzatore (niente più "consigliato"); pulsanti "Il tabellone parte da"; spiegazione
   di chi passa anche per fasce prese a metà ("le 2 migliori terze").
 - **1.8.0** (28/09/2026) — Accoppiamenti del tabellone modificabili a mano (scambio a due clic).
 - **1.7.0** (28/09/2026) — Tipi di torneo: DF Padel Cup e Classico, scelti con un clic in Nuovo torneo e

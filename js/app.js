@@ -996,7 +996,7 @@
 
     const options = opts.map((o) => `
       <button type="button" class="sim-option ${o.groups === chosen ? 'active' : ''}" data-action="plan-groups" data-target="${target}" data-g="${o.groups}">
-        <span class="so-title">${C.describeSizes(p.n, p.courts, o.groups)}${o.groups === autoG ? ' <span class="so-best">consigliato</span>' : ''}</span>
+        <span class="so-title">${C.describeSizes(p.n, p.courts, o.groups)}</span>
         <span class="so-line">${o.perCouple.min === o.perCouple.max ? o.perCouple.min : `${o.perCouple.min}–${o.perCouple.max}`} partite a coppia nei gironi</span>
         <span class="so-line">Gironi finiti alle <strong>${fmtTime(start + o.groupMinutes)}</strong></span>
         <span class="so-line">Torneo finito alle <strong>${fmtTime(start + o.totalMinutes)}</strong></span>
@@ -1104,6 +1104,7 @@
 
     return `
       <h3 class="plan-sub" data-help-key="sec-sim-options">Come dividere le ${p.n} coppie</h3>
+      ${opts.length > 1 ? '<p class="hint" style="margin-top:0">Scegli tu: confronta partite a coppia e orari di fine, poi clicca la divisione che preferisci.</p>' : ''}
       <div class="sim-options">${options}</div>
       <h3 class="plan-sub" data-help-key="sec-sim-result">Tempi</h3>
       ${kpis}

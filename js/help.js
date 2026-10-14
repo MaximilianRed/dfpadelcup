@@ -140,7 +140,7 @@
     'sim-courts': 'Quanti campi avete a disposizione.',
     'sim-minutes': 'Quanto dura in media una partita, cambio campo compreso. Un set dura di solito 30-40 minuti, al meglio dei 3 set 60-90.',
     'sim-start': 'A che ora inizia la prima partita.',
-    'sec-sim-options': 'Tutti i modi possibili di dividere le coppie in gironi da 3 e da 4. Clicca per sceglierne uno.',
+    'sec-sim-options': 'Tutti i modi possibili di dividere le coppie in gironi da 3 e da 4. La scelta è dell\'organizzatore: clicca quella che preferisci.',
     'action:plan-groups': 'Scegli questa divisione in gironi.',
     'sec-ko-plan': 'Come si gioca il tabellone: quante coppie entrano, quante passano direttamente e in quale turno.',
     'ko-size': 'Quante coppie entrano nel tabellone, prese dall\'alto della classifica generale. Al massimo tutte.',
