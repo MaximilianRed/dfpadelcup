@@ -86,6 +86,13 @@ Passando il mouse su qualsiasi voce (pulsanti, campi, intestazioni delle tabelle
 | 16 | 9–16 | 5–8 + 4 vincenti | 1–4 + 4 vincenti |
 | 20 | 5–20 | 8 vincenti | 1–4 + 4 vincenti |
 
+## Mandare il torneo a un'altra persona (per esempio l'arbitro)
+
+*Tornei → Invia* (o *Invia all'arbitro* nella scheda Gironi) crea un **link** con dentro tutto il torneo e lo
+manda su WhatsApp. Chi lo apre ritrova il torneo sul suo telefono e può modificarlo (gironi, campi, risultati).
+Le due copie non si sincronizzano da sole: i risultati li inserisce **una persona sola**; per ripassarlo indietro
+si usa di nuovo *Invia*.
+
 ## Dati
 
 I tornei sono salvati nel browser del dispositivo. Usa **Esporta** per fare un backup o spostare un torneo
@@ -108,6 +115,8 @@ La versione e la data dell'aggiornamento sono scritte nella testata dell'app e i
 dei file in `index.html`: così i browser scaricano subito i file nuovi invece di usare quelli vecchi in memoria
 (un test controlla che le due versioni coincidano).
 
+- **1.12.0** (14/10/2026) — Invio del torneo con un link su WhatsApp (per esempio all'arbitro) e apertura
+  del link sul telefono di chi lo riceve.
 - **1.11.0** (14/10/2026) — Spostare i gironi da un campo all'altro nella pagina Gironi.
 - **1.10.0** (14/10/2026) — Gironi composti a mano: spostare le coppie tra gironi, trascinarle, sorteggio
   "Li compongo io".

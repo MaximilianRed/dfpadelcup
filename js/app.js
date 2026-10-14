@@ -206,6 +206,7 @@
             <div class="t-date">${x.date ? formatDate(x.date) : 'Senza data'}${isCur ? ' · aperto' : ''}</div></div></div>
           <div class="row-actions">
             ${isCur ? '' : `<button class="btn small primary" data-action="open-t" data-id="${x.id}">Apri</button>`}
+            <button class="btn small ghost" data-action="share-t" data-id="${x.id}" data-help-key="share-t">${ICON.share} Invia</button>
             <button class="btn small ghost" data-action="export-t" data-id="${x.id}">${ICON.download} Esporta</button>
             <button class="btn small ghost danger" data-action="delete-t" data-id="${x.id}">Elimina</button>
           </div></li>`;
@@ -213,7 +214,7 @@
       <div class="import">
         <label class="btn ghost">${ICON.upload} Importa torneo da file<input type="file" accept=".json,application/json" data-change="import" hidden></label>
       </div>
-      <p class="hint">I tornei sono salvati in questo browser. Usa <em>Esporta</em> per fare un backup o per spostare un torneo su un altro dispositivo.</p>
+      <p class="hint">I tornei sono salvati in questo browser. Con <em>Invia</em> mandi il torneo con un link su WhatsApp (per esempio all'arbitro): chi lo apre lo ritrova sul suo telefono e può modificarlo. I risultati li inserisce una persona sola. <em>Esporta</em> salva un file di backup.</p>
     </section>`;
   }
 
@@ -335,6 +336,7 @@
       }[t.settings.drawMode] || ICON.star + ' Teste di serie'}</span>
       <span class="spacer"></span>
       <button class="btn small ${ui.editGroups ? 'primary' : ''}" data-action="toggle-edit">${ICON.edit} ${ui.editGroups ? 'Fine modifica' : 'Modifica composizione'}</button>
+      <button class="btn small" data-action="share-t" data-help-key="share-ref">${ICON.share} Invia all'arbitro</button>
       <button class="btn small" data-action="print">${ICON.print} Stampa</button>
     </div>
     ${ui.editGroups ? `<p class="notice">${ui.swapPick
@@ -1296,6 +1298,74 @@
     reader.readAsText(file);
   }
 
+  /* ----------------------------------------- invio del torneo con un link */
+
+  // Il torneo viene compresso dentro il link (dopo il #): nessun server, si manda su WhatsApp.
+  async function packTournament(x) {
+    const stream = new Blob([new TextEncoder().encode(JSON.stringify(x))]).stream()
+      .pipeThrough(new CompressionStream('deflate-raw'));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function unpackTournament(code) {
+    const b64 = code.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+    const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return JSON.parse(await new Response(stream).text());
+  }
+
+  // Manda il torneo (per esempio all'arbitro): dal telefono si apre la condivisione con WhatsApp;
+  // dal computer si apre WhatsApp Web e il link viene anche copiato.
+  async function shareTournament(id) {
+    const x = S.load(id);
+    if (!x) return;
+    if (typeof CompressionStream === 'undefined') {
+      toast('Questo browser non può creare il link: usa Esporta e manda il file', true);
+      return;
+    }
+    const url = location.origin + location.pathname + '#t=' + await packTournament(x);
+    const text = `Torneo «${x.name}»: apri il link per caricarlo nell'app DF Padel Cup sul tuo telefono.`;
+    if (navigator.share && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) {
+      try {
+        await navigator.share({ title: x.name, text, url });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    try { await navigator.clipboard.writeText(url); } catch (e) { /* ignora */ }
+    window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank', 'noopener');
+    toast('Link del torneo copiato: si apre WhatsApp per mandarlo');
+  }
+
+  // Apertura di un link ricevuto: chiede conferma e salva il torneo su questo dispositivo.
+  async function receiveFromLink() {
+    const m = location.hash.match(/^#t=([A-Za-z0-9_-]+)$/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    let x;
+    try { x = await unpackTournament(m[1]); } catch (e) { x = null; }
+    if (!x || !x.id || !Array.isArray(x.teams) || !x.settings) {
+      toast('Il link non contiene un torneo valido', true);
+      return;
+    }
+    if (S.load(x.id)) {
+      if (!confirm(`Hai ricevuto il torneo «${x.name}».\nSu questo dispositivo ce n'è già una copia: vuoi SOSTITUIRLA con quella ricevuta?\n(Annulla per tenere la tua e salvare quella ricevuta come copia)`)) {
+        x.id = C.newTournament({}).id;
+        x.name += ' (ricevuto)';
+      }
+    } else if (!confirm(`Hai ricevuto il torneo «${x.name}». Vuoi aprirlo su questo dispositivo?`)) {
+      return;
+    }
+    S.save(C.normalize(x));
+    openTournament(x.id);
+    toast(`Torneo «${x.name}» ricevuto: puoi modificarlo e inserire i risultati`);
+  }
+
   // Aggiungere o togliere coppie rende i gironi non più validi.
   function allowTeamChange() {
     if (!t.groups.length) return true;
@@ -1345,6 +1415,9 @@
 
     'open-t': (el) => openTournament(el.dataset.id),
     'export-t': (el) => exportTournament(el.dataset.id),
+    'share-t': (el) => {
+      shareTournament(el.dataset.id || (t && t.id)).catch(() => toast('Non sono riuscito a creare il link del torneo', true));
+    },
     'delete-t': (el) => {
       const x = S.load(el.dataset.id);
       if (!x || !confirm(`Eliminare il torneo "${x.name}"?\nL'operazione non si può annullare: esportalo prima se vuoi tenerne una copia.`)) return;
@@ -1854,6 +1927,7 @@
   try {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyPrefs);
   } catch (e) { /* browser datato */ }
+  window.addEventListener('hashchange', () => { receiveFromLink(); });
 
   const currentId = S.getCurrentId();
   if (currentId) t = S.load(currentId);
@@ -1864,4 +1938,5 @@
     tab = saved || 'coppie';
   }
   render();
+  receiveFromLink();
 })();

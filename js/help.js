@@ -26,6 +26,8 @@
     'new-t-submit': 'Crea il torneo e passa all\'inserimento delle coppie.',
     'action:open-t': 'Apre questo torneo per continuare a lavorarci.',
     'action:export-t': 'Scarica il torneo in un file (.json): serve come backup o per spostarlo su un altro telefono o computer.',
+    'share-t': 'Manda il torneo con un link (WhatsApp): chi lo apre lo ritrova sul suo telefono, con gironi e risultati, e può modificarlo.',
+    'share-ref': 'Manda il torneo all\'arbitro con un link su WhatsApp: lui lo apre sul suo telefono e può cambiare i gironi. Da quel momento i risultati li inserisce una persona sola.',
     'action:delete-t': 'Cancella definitivamente il torneo da questo browser. Esportalo prima se vuoi tenerne una copia.',
     'change:import': 'Carica un torneo da un file .json esportato in precedenza.',
 
